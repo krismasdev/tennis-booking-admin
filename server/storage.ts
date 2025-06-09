@@ -13,7 +13,7 @@ import {
   type InsertBooking,
   type TimeSlotWithCourt,
   type BookingWithDetails
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, desc, asc, gte, lte } from "drizzle-orm";
 import session from "express-session";

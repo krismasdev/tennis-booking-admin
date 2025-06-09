@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupAuth } from "./auth.js";
-import { insertUserSchema, insertCourtSchema, insertTimeSlotSchema, insertBookingSchema } from "@shared/schema";
+import { insertUserSchema, insertCourtSchema, insertTimeSlotSchema, insertBookingSchema } from "../shared/schema.js";
 import { z } from "zod";
 
 function requireAdmin(req: any, res: any, next: any) {
