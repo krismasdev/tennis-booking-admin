@@ -4,19 +4,10 @@
   "outputDirectory": "dist/public",
   "installCommand": "npm install",
   "framework": null,
-  "functions": {
-    "api/[...slug].js": {
-      "runtime": "nodejs18.x"
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/[...slug]"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/api/(.*)",
+      "destination": "/api/[...slug]"
     }
   ]
 } 
