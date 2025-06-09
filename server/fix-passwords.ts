@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 

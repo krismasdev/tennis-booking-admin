@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { setupAuth } from "./auth";
+import { storage } from "./storage.js";
+import { setupAuth } from "./auth.js";
 import { insertUserSchema, insertCourtSchema, insertTimeSlotSchema, insertBookingSchema } from "@shared/schema";
 import { z } from "zod";
 
