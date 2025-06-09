@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 
 // Dynamic imports for ES modules
 let registerRoutes, dotenv;
@@ -102,7 +102,7 @@ async function createApp() {
   return app;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   try {
     console.log(`${req.method} ${req.url}`);
     const app = await createApp();
@@ -121,4 +121,4 @@ module.exports = async function handler(req, res) {
       });
     }
   }
-}; 
+} 
