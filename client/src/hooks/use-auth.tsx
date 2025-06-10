@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      // Redirect logic will be handled in AuthPage component
     },
     onError: (error: Error) => {
       toast({
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      // Redirect logic will be handled in AuthPage component
     },
     onError: (error: Error) => {
       toast({

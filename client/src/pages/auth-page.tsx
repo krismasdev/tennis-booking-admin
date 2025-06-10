@@ -12,6 +12,7 @@ import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -24,13 +25,26 @@ type RegisterFormData = z.infer<typeof insertUserSchema>;
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
-  // Redirect if already logged in
+  // Redirect logic based on user role
   useEffect(() => {
     if (user) {
+      if (user.role === "admin") {
+        setLocation("/admin");
+      } else if (user.role === "vendor") {
+        setLocation("/vendor");
+      } else {
+        // Show alert for non-admin/non-vendor users
+        toast({
+          title: "Access Restricted",
+          description: "You are not an admin user. You cannot access the admin panel.",
+          variant: "destructive",
+        });
       setLocation("/");
+      }
     }
-  }, [user, setLocation]);
+  }, [user, setLocation, toast]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
