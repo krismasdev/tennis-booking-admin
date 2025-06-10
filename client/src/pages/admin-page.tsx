@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AdminSidebar } from "@/components/admin-sidebar";
-import { AdminUserManagement } from "@/components/admin-user-management";
-import { AdminScheduleManagement } from "@/components/admin-schedule-management";
-import { AdminBookingManagement } from "@/components/admin-booking-management";
-import { AdminCalendarView } from "@/components/admin-calendar-view";
-import { AdminPricingManagement } from "@/components/admin-pricing-management";
-import { AdminCourtsManagement } from "@/components/admin-courts-management";
+import { AdminSidebar } from "@/components/admin-sidebar.tsx";
+import { AdminUserManagement } from "@/components/admin-user-management.tsx";
+import { AdminScheduleManagement } from "@/components/admin-schedule-management.tsx";
+import { AdminBookingManagement } from "@/components/admin-booking-management.tsx";
+import { AdminCalendarView } from "@/components/admin-calendar-view.tsx";
+import { AdminPricingManagement } from "@/components/admin-pricing-management.tsx";
+import { AdminCourtsManagement } from "@/components/admin-courts-management.tsx";
 import {
   RevenueChart,
   BookingsChart,
@@ -16,7 +16,7 @@ import {
   TimeSlotChart,
   UserTypePieChart,
   RevenueVsBookingsChart,
-} from "@/components/admin-charts";
+} from "@/components/admin-charts.tsx";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Menu, 
