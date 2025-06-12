@@ -191,8 +191,6 @@ export function AdminScheduleManagement() {
   // Generate time options from 6:00 to 23:30 in 30-minute intervals
   const generateTimeOptions = () => {
     const times = [];
-    // Add 00:00 at the beginning
-    times.push("00:00");
 
     for (let hour = 6; hour <= 23; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
@@ -202,6 +200,10 @@ export function AdminScheduleManagement() {
         times.push(timeStr);
       }
     }
+
+    // Add 00:00 at the end
+    times.push("00:00");
+
     return times;
   };
 
