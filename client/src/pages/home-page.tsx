@@ -45,9 +45,9 @@ export default function HomePage() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">T</span>
+                  <span className="text-white font-bold text-sm">L</span>
                 </div>
-                <h1 className="text-xl font-bold text-gray-900">TennisBook</h1>
+                <h1 className="text-xl font-bold text-gray-900">Laterp</h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -84,7 +84,9 @@ export default function HomePage() {
       <div className="bg-gradient-to-r from-primary to-emerald-600 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">Book Your Court</h1>
+            <h1 className="text-4xl md:text-6xl font-bold mb-4">
+              Book Your Court
+            </h1>
             <p className="text-xl md:text-2xl mb-8 opacity-90">
               Reserve premium tennis courts with ease
             </p>
@@ -107,7 +109,7 @@ export default function HomePage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2">
-            <UserBookingForm 
+            <UserBookingForm
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
             />
@@ -151,23 +153,31 @@ export default function HomePage() {
                 ) : (
                   <div className="space-y-3">
                     {bookings.slice(0, 5).map((booking) => (
-                      <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div
+                        key={booking.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
                         <div>
                           <div className="font-medium text-sm">
                             {booking.timeSlot.court.name}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {booking.timeSlot.date}, {booking.timeSlot.startTime} - {booking.timeSlot.endTime}
+                            {booking.timeSlot.date},{" "}
+                            {booking.timeSlot.startTime} -{" "}
+                            {booking.timeSlot.endTime}
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          booking.status === 'confirmed' 
-                            ? 'bg-green-100 text-green-800'
-                            : booking.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            booking.status === "confirmed"
+                              ? "bg-green-100 text-green-800"
+                              : booking.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {booking.status.charAt(0).toUpperCase() +
+                            booking.status.slice(1)}
                         </span>
                       </div>
                     ))}

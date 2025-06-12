@@ -38,10 +38,11 @@ export default function AuthPage() {
         // Show alert for non-admin/non-vendor users
         toast({
           title: "Access Restricted",
-          description: "You are not an admin user. You cannot access the admin panel.",
+          description:
+            "You are not an admin user. You cannot access the admin panel.",
           variant: "destructive",
         });
-      setLocation("/");
+        setLocation("/");
       }
     }
   }, [user, setLocation, toast]);
@@ -87,8 +88,12 @@ export default function AuthPage() {
             <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-white font-bold text-xl">T</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome to TennisBook</h1>
-            <p className="text-gray-600 mt-2">Sign in to your account or create a new one</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome to Laterp
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Sign in to your account or create a new one
+            </p>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
@@ -103,7 +108,10 @@ export default function AuthPage() {
                   <CardTitle>Login</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                  <form
+                    onSubmit={loginForm.handleSubmit(handleLogin)}
+                    className="space-y-4"
+                  >
                     <div>
                       <Label htmlFor="login-username">Username</Label>
                       <Input
@@ -134,9 +142,9 @@ export default function AuthPage() {
                       )}
                     </div>
 
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
+                    <Button
+                      type="submit"
+                      className="w-full"
                       disabled={loginMutation.isPending}
                     >
                       {loginMutation.isPending ? (
@@ -159,7 +167,10 @@ export default function AuthPage() {
                   <CardTitle>Create Account</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
+                  <form
+                    onSubmit={registerForm.handleSubmit(handleRegister)}
+                    className="space-y-4"
+                  >
                     <div>
                       <Label htmlFor="register-username">Username</Label>
                       <Input
@@ -219,9 +230,9 @@ export default function AuthPage() {
                       )}
                     </div>
 
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
+                    <Button
+                      type="submit"
+                      className="w-full"
                       disabled={registerMutation.isPending}
                     >
                       {registerMutation.isPending ? (
@@ -248,7 +259,8 @@ export default function AuthPage() {
             Premium Tennis Court Booking
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Book professional tennis courts with flexible scheduling and instant confirmation.
+            Book professional tennis courts with flexible scheduling and instant
+            confirmation.
           </p>
           <div className="space-y-4">
             <div className="flex items-center space-x-3">

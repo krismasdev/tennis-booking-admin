@@ -34,7 +34,13 @@ interface MenuItemProps {
   children?: MenuItemProps[];
 }
 
-const MenuItem = ({ icon, label, active, onClick, children }: MenuItemProps) => {
+const MenuItem = ({
+  icon,
+  label,
+  active,
+  onClick,
+  children,
+}: MenuItemProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (children) {
@@ -83,7 +89,12 @@ const MenuItem = ({ icon, label, active, onClick, children }: MenuItemProps) => 
   );
 };
 
-export const AdminSidebar = ({ isOpen, onClose, activeTab, onTabChange }: SidebarProps) => {
+export const AdminSidebar = ({
+  isOpen,
+  onClose,
+  activeTab,
+  onTabChange,
+}: SidebarProps) => {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
 
@@ -125,8 +136,8 @@ export const AdminSidebar = ({ isOpen, onClose, activeTab, onTabChange }: Sideba
       onClick: () => onTabChange("pricing"),
     },
     {
-      icon: <Clock className="h-5 w-5" />,
-      label: "Schedules",
+      icon: <MapPin className="h-5 w-5" />,
+      label: "Courts",
       active: activeTab === "schedules",
       onClick: () => onTabChange("schedules"),
     },
@@ -180,16 +191,26 @@ export const AdminSidebar = ({ isOpen, onClose, activeTab, onTabChange }: Sideba
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">T</span>
+                <span className="text-white font-bold text-sm">L</span>
               </div>
-              <h1 className="text-xl font-bold text-white">TennisBook</h1>
+              <h1 className="text-xl font-bold text-white">Laterp</h1>
             </div>
             <button
               onClick={onClose}
               className="lg:hidden text-gray-400 hover:text-white"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -216,7 +237,11 @@ export const AdminSidebar = ({ isOpen, onClose, activeTab, onTabChange }: Sideba
             </div>
             <div className="space-y-2">
               <Link href="/">
-                <Button variant="ghost" size="sm" className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-700">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-700"
+                >
                   <Home className="h-4 w-4 mr-2" />
                   Back to App
                 </Button>
@@ -236,4 +261,4 @@ export const AdminSidebar = ({ isOpen, onClose, activeTab, onTabChange }: Sideba
       </div>
     </>
   );
-}; 
+};

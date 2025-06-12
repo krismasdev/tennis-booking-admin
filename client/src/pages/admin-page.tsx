@@ -18,14 +18,14 @@ import {
   RevenueVsBookingsChart,
 } from "@/components/admin-charts";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  Menu, 
-  Users, 
-  Calendar, 
-  BookOpen, 
-  DollarSign, 
-  Clock, 
-  MapPin, 
+import {
+  Menu,
+  Users,
+  Calendar,
+  BookOpen,
+  DollarSign,
+  Clock,
+  MapPin,
   TrendingUp,
   Activity,
   BarChart3,
@@ -70,7 +70,9 @@ export default function AdminPage() {
                       <Users className="h-6 w-6 text-blue-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Users</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Users
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         {stats?.totalUsers ?? 0}
                       </p>
@@ -86,7 +88,9 @@ export default function AdminPage() {
                       <MapPin className="h-6 w-6 text-green-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Courts</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Courts
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         {stats?.totalCourts || 6}
                       </p>
@@ -102,7 +106,9 @@ export default function AdminPage() {
                       <BookOpen className="h-6 w-6 text-emerald-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Active Bookings</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Active Bookings
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         {stats?.activeBookings || 0}
                       </p>
@@ -118,7 +124,9 @@ export default function AdminPage() {
                       <Clock className="h-6 w-6 text-yellow-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Pending</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Pending
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         {stats?.pendingBookings || 0}
                       </p>
@@ -134,7 +142,9 @@ export default function AdminPage() {
                       <DollarSign className="h-6 w-6 text-green-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Total Revenue
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         ${stats?.revenue?.toFixed(2) || "0.00"}
                       </p>
@@ -150,7 +160,9 @@ export default function AdminPage() {
                       <Activity className="h-6 w-6 text-purple-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Occupancy Rate</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Occupancy Rate
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         {stats?.occupancyRate || 0}%
                       </p>
@@ -166,7 +178,9 @@ export default function AdminPage() {
                       <TrendingUp className="h-6 w-6 text-orange-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Daily Revenue</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Daily Revenue
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         ${stats?.dailyRevenue?.toFixed(2) || "0.00"}
                       </p>
@@ -182,7 +196,9 @@ export default function AdminPage() {
                       <BarChart3 className="h-6 w-6 text-indigo-600" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Monthly Revenue
+                      </p>
                       <p className="text-2xl font-semibold text-gray-900">
                         ${stats?.monthlyRevenue?.toFixed(2) || "0.00"}
                       </p>
@@ -219,8 +235,12 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
-              <p className="text-gray-600 mt-1">Detailed insights and reports</p>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Analytics Dashboard
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Detailed insights and reports
+              </p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RevenueChart />
@@ -236,8 +256,12 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Revenue Analytics</h2>
-              <p className="text-gray-600 mt-1">Track revenue trends and performance</p>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Revenue Analytics
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Track revenue trends and performance
+              </p>
             </div>
             <div className="grid grid-cols-1 gap-6">
               <RevenueChart />
@@ -249,8 +273,12 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Booking Analytics</h2>
-              <p className="text-gray-600 mt-1">Analyze booking patterns and trends</p>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Booking Analytics
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Analyze booking patterns and trends
+              </p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BookingsChart />
@@ -264,7 +292,9 @@ export default function AdminPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-              <p className="text-gray-600 mt-1">Configure system settings and preferences</p>
+              <p className="text-gray-600 mt-1">
+                Configure system settings and preferences
+              </p>
             </div>
             <Card>
               <CardHeader>
@@ -288,8 +318,8 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <AdminSidebar 
-        isOpen={sidebarOpen} 
+      <AdminSidebar
+        isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -307,7 +337,7 @@ export default function AdminPage() {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold">TennisBook Admin</h1>
+            <h1 className="text-lg font-semibold">Laterp Admin</h1>
             <div className="w-8" /> {/* Spacer */}
           </div>
         </div>
@@ -324,7 +354,7 @@ export default function AdminPage() {
                   {activeTab === "bookings" && "Bookings"}
                   {activeTab === "users" && "Users"}
                   {activeTab === "pricing" && "Pricing"}
-                  {activeTab === "schedules" && "Schedules"}
+                  {activeTab === "schedules" && "Courts"}
                   {activeTab === "analytics" && "Analytics"}
                   {activeTab === "revenue" && "Revenue Analytics"}
                   {activeTab === "booking-analytics" && "Booking Analytics"}
@@ -339,9 +369,7 @@ export default function AdminPage() {
         </div>
 
         {/* Content Area */}
-        <div className="p-6 lg:p-8">
-          {renderContent()}
-        </div>
+        <div className="p-6 lg:p-8">{renderContent()}</div>
       </div>
     </div>
   );
