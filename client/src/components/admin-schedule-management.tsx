@@ -65,16 +65,22 @@ export function AdminScheduleManagement() {
   const [openTime, setOpenTime] = useState("");
   const [closeTime, setCloseTime] = useState("");
   const [dayPricing, setDayPricing] = useState<DayPricing[]>([
-    { day: "Monday", price: "0.00", enabled: false },
+    { day: "Monday", price: "0.00", enabled: true },
     { day: "Tuesday", price: "0.00", enabled: false },
     { day: "Wednesday", price: "0.00", enabled: false },
     { day: "Thursday", price: "0.00", enabled: false },
     { day: "Friday", price: "0.00", enabled: false },
-    { day: "Saturday", price: "0.00", enabled: false },
+    { day: "Saturday", price: "0.00", enabled: true },
     { day: "Sunday", price: "0.00", enabled: false },
   ]);
   const [useMondayPrices, setUseMondayPrices] = useState(true);
   const [useSaturdayPrices, setUseSaturdayPrices] = useState(true);
+  const [timeSlotPricing, setTimeSlotPricing] = useState<{
+    [key: string]: { [key: string]: string };
+  }>({
+    Monday: {},
+    Saturday: {},
+  });
 
   const { toast } = useToast();
 
@@ -185,6 +191,9 @@ export function AdminScheduleManagement() {
   // Generate time options from 6:00 to 23:30 in 30-minute intervals
   const generateTimeOptions = () => {
     const times = [];
+    // Add 00:00 at the beginning
+    times.push("00:00");
+
     for (let hour = 6; hour <= 23; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const timeStr = `${hour.toString().padStart(2, "0")}:${minute
@@ -215,38 +224,89 @@ export function AdminScheduleManagement() {
       currentHour < endHour ||
       (currentHour === endHour && currentMinute < endMinute)
     ) {
-      const nextMinute = currentMinute + 60; // 1-hour slots
+      // Calculate next time slot (30 minutes later)
       let nextHour = currentHour;
+      let nextMinute = currentMinute + 30;
 
       if (nextMinute >= 60) {
-        nextHour += Math.floor(nextMinute / 60);
-        currentMinute = nextMinute % 60;
-      } else {
-        currentMinute = nextMinute;
+        nextHour += 1;
+        nextMinute = 0;
       }
 
       const startTime = `${currentHour
         .toString()
         .padStart(2, "0")}:${currentMinute.toString().padStart(2, "0")}`;
-      const endTime = `${nextHour.toString().padStart(2, "0")}:${(
-        nextMinute % 60
-      )
+      const endTime = `${nextHour.toString().padStart(2, "0")}:${nextMinute
         .toString()
         .padStart(2, "0")}`;
 
+      // Only add slot if it doesn't exceed the closing time
       if (
         nextHour < endHour ||
-        (nextHour === endHour && nextMinute % 60 <= endMinute)
+        (nextHour === endHour && nextMinute <= endMinute)
       ) {
         slots.push({ startTime, endTime });
       }
 
+      // Move to next slot
       currentHour = nextHour;
-      currentMinute = nextMinute % 60;
+      currentMinute = nextMinute;
     }
 
     return slots;
   };
+
+  // Generate time slots for pricing based on actual court hours
+  const generatePricingTimeSlots = () => {
+    if (!openTime || !closeTime) return [];
+
+    const slots = [];
+    const startHour = parseInt(openTime.split(":")[0]);
+    const startMinute = parseInt(openTime.split(":")[1]);
+    const endHour = parseInt(closeTime.split(":")[0]);
+    const endMinute = parseInt(closeTime.split(":")[1]);
+
+    let currentHour = startHour;
+    let currentMinute = startMinute;
+
+    while (
+      currentHour < endHour ||
+      (currentHour === endHour && currentMinute < endMinute)
+    ) {
+      // Calculate next time slot (30 minutes later)
+      let nextHour = currentHour;
+      let nextMinute = currentMinute + 30;
+
+      if (nextMinute >= 60) {
+        nextHour += 1;
+        nextMinute = 0;
+      }
+
+      const timeSlot = `${currentHour
+        .toString()
+        .padStart(2, "0")}:${currentMinute
+        .toString()
+        .padStart(2, "0")}-${nextHour.toString().padStart(2, "0")}:${nextMinute
+        .toString()
+        .padStart(2, "0")}`;
+
+      // Only add slot if it doesn't exceed the closing time
+      if (
+        nextHour < endHour ||
+        (nextHour === endHour && nextMinute <= endMinute)
+      ) {
+        slots.push(timeSlot);
+      }
+
+      // Move to next slot
+      currentHour = nextHour;
+      currentMinute = nextMinute;
+    }
+
+    return slots;
+  };
+
+  const pricingTimeSlots = generatePricingTimeSlots();
 
   const handlePriceChange = (dayIndex: number, newPrice: string) => {
     const updatedPricing = [...dayPricing];
@@ -313,6 +373,20 @@ export function AdminScheduleManagement() {
     }
   };
 
+  const handleTimeSlotPriceChange = (
+    day: string,
+    timeSlot: string,
+    price: string
+  ) => {
+    setTimeSlotPricing((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [timeSlot]: price,
+      },
+    }));
+  };
+
   const handleAddSlot = (data: TimeSlotFormData) => {
     addSlotMutation.mutate({
       ...data,
@@ -358,14 +432,18 @@ export function AdminScheduleManagement() {
     setUseMondayPrices(true);
     setUseSaturdayPrices(true);
     setDayPricing([
-      { day: "Monday", price: "0.00", enabled: false },
+      { day: "Monday", price: "0.00", enabled: true },
       { day: "Tuesday", price: "0.00", enabled: false },
       { day: "Wednesday", price: "0.00", enabled: false },
       { day: "Thursday", price: "0.00", enabled: false },
       { day: "Friday", price: "0.00", enabled: false },
-      { day: "Saturday", price: "0.00", enabled: false },
+      { day: "Saturday", price: "0.00", enabled: true },
       { day: "Sunday", price: "0.00", enabled: false },
     ]);
+    setTimeSlotPricing({
+      Monday: {},
+      Saturday: {},
+    });
   };
 
   const handleDeleteSlot = (id: number) => {
@@ -404,6 +482,10 @@ export function AdminScheduleManagement() {
         enabled: false,
       },
     ]);
+    setTimeSlotPricing({
+      Monday: {},
+      Saturday: {},
+    });
     setIsViewCourtDialogOpen(true);
   };
 
@@ -521,9 +603,39 @@ export function AdminScheduleManagement() {
                   <div>
                     <Label>Weekly Pricing</Label>
                     <p className="text-sm text-gray-600 mb-4">
-                      Only Monday and Saturday are available for editing. Use
-                      the checkboxes to control automatic price application.
+                      Set individual prices for each time slot on Monday and
+                      Saturday. Other days will automatically follow the pricing
+                      rules.
                     </p>
+
+                    {/* Pricing Control Options */}
+                    <div className="flex justify-center space-x-8 mb-6">
+                      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <Checkbox
+                          checked={useMondayPrices}
+                          onCheckedChange={(checked) =>
+                            handleMondayPricesToggle(checked as boolean)
+                          }
+                          className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                        />
+                        <span className="text-lg font-medium text-gray-700">
+                          Apply Monday prices to Tue-Fri
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <Checkbox
+                          checked={useSaturdayPrices}
+                          onCheckedChange={(checked) =>
+                            handleSaturdayPricesToggle(checked as boolean)
+                          }
+                          className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                        />
+                        <span className="text-lg font-medium text-gray-700">
+                          Apply Saturday prices to Sunday
+                        </span>
+                      </div>
+                    </div>
 
                     <div className="space-y-3">
                       {dayPricing.map((day, index) => {
@@ -531,7 +643,6 @@ export function AdminScheduleManagement() {
                         const isSaturday = index === 5;
                         const isWeekday = index >= 1 && index <= 4; // Tue-Fri
                         const isSunday = index === 6;
-                        const isEditable = isMonday || isSaturday;
                         const isBlurred = isWeekday || isSunday;
                         const canEditManually =
                           (isWeekday && !useMondayPrices) ||
@@ -540,112 +651,83 @@ export function AdminScheduleManagement() {
                         return (
                           <div key={day.day}>
                             <div
-                              className={`flex items-center space-x-4 p-3 border rounded-lg ${
+                              className={`border rounded-lg p-4 ${
                                 isBlurred && !canEditManually
                                   ? "opacity-50 blur-[1px]"
                                   : ""
                               }`}
                             >
-                              <div className="w-20 text-sm font-medium">
-                                {day.day}
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-20 text-lg font-bold text-gray-900">
+                                    {day.day}
+                                  </div>
+                                </div>
+
+                                {((isWeekday && useMondayPrices) ||
+                                  (isSunday && useSaturdayPrices)) && (
+                                  <div className="text-sm text-blue-600 font-medium">
+                                    Auto-applied from{" "}
+                                    {isWeekday ? "Monday" : "Saturday"}
+                                  </div>
+                                )}
                               </div>
 
-                              {isEditable && (
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    checked={day.enabled}
-                                    onCheckedChange={(checked) =>
-                                      handleEnabledChange(
-                                        index,
-                                        checked as boolean
-                                      )
-                                    }
-                                    className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
-                                  />
-                                  <span className="text-sm text-gray-600">
-                                    Enable editing
-                                  </span>
+                              {/* Time Slot Pricing Grid - Show for all days */}
+                              {!(
+                                (isWeekday && useMondayPrices) ||
+                                (isSunday && useSaturdayPrices)
+                              ) && (
+                                <div className="mt-4">
+                                  <p className="text-sm font-medium text-gray-700 mb-3">
+                                    Set prices for each time slot:
+                                  </p>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {pricingTimeSlots.map((timeSlot) => (
+                                      <div key={timeSlot} className="space-y-1">
+                                        <Label className="text-xs text-gray-600">
+                                          {timeSlot}
+                                        </Label>
+                                        <div className="flex items-center space-x-1">
+                                          <span className="text-xs text-gray-500">
+                                            €
+                                          </span>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={
+                                              timeSlotPricing[day.day]?.[
+                                                timeSlot
+                                              ] || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleTimeSlotPriceChange(
+                                                day.day,
+                                                timeSlot,
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder="0.00"
+                                            className="text-xs h-8"
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
 
-                              <div className="flex-1">
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  value={day.price}
-                                  onChange={(e) =>
-                                    handlePriceChange(index, e.target.value)
-                                  }
-                                  disabled={
-                                    (!day.enabled && isEditable) ||
-                                    (isWeekday && useMondayPrices) ||
-                                    (isSunday && useSaturdayPrices)
-                                  }
-                                  placeholder="0.00"
-                                  className={`${
-                                    !day.enabled && isEditable
-                                      ? "bg-gray-100"
-                                      : ""
-                                  } ${
-                                    (isWeekday && useMondayPrices) ||
-                                    (isSunday && useSaturdayPrices)
-                                      ? "bg-blue-50"
-                                      : ""
-                                  }`}
-                                />
-                              </div>
-
-                              <div className="w-16 text-sm text-gray-500">
-                                ${day.price}
-                              </div>
-
+                              {/* Show auto-applied message for days that inherit pricing */}
                               {((isWeekday && useMondayPrices) ||
                                 (isSunday && useSaturdayPrices)) && (
-                                <div className="text-xs text-blue-600">
-                                  Auto-applied
+                                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                  <p className="text-sm text-blue-700">
+                                    Pricing automatically applied from{" "}
+                                    {isWeekday ? "Monday" : "Saturday"}
+                                  </p>
                                 </div>
                               )}
                             </div>
-
-                            {/* Large Monday Prices Checkbox */}
-                            {index === 2 && ( // Show after Wednesday (middle of weekdays)
-                              <div className="flex justify-center my-4">
-                                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                                  <Checkbox
-                                    checked={useMondayPrices}
-                                    onCheckedChange={(checked) =>
-                                      handleMondayPricesToggle(
-                                        checked as boolean
-                                      )
-                                    }
-                                    className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                                  />
-                                  <span className="text-lg font-medium text-gray-700">
-                                    Monday prices?
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Large Saturday Prices Checkbox */}
-                            {index === 5 && ( // Show after Saturday
-                              <div className="flex justify-center my-4">
-                                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                                  <Checkbox
-                                    checked={useSaturdayPrices}
-                                    onCheckedChange={(checked) =>
-                                      handleSaturdayPricesToggle(
-                                        checked as boolean
-                                      )
-                                    }
-                                    className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                                  />
-                                  <span className="text-lg font-medium text-gray-700">
-                                    Saturday prices?
-                                  </span>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -818,13 +900,13 @@ export function AdminScheduleManagement() {
                   </div>
 
                   <div>
-                    <Label htmlFor="slot-price">Price ($)</Label>
+                    <Label htmlFor="slot-price">Price (€)</Label>
                     <Input
                       id="slot-price"
                       type="number"
                       step="0.01"
                       {...addSlotForm.register("price")}
-                      placeholder="Enter price"
+                      placeholder="Enter price in euros"
                     />
                   </div>
 
@@ -894,7 +976,7 @@ export function AdminScheduleManagement() {
                       {slot.startTime} - {slot.endTime}
                     </TableCell>
                     <TableCell>{slot.court.name}</TableCell>
-                    <TableCell>${slot.price}</TableCell>
+                    <TableCell>€{slot.price}</TableCell>
                     <TableCell>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1010,9 +1092,38 @@ export function AdminScheduleManagement() {
             <div>
               <Label>Weekly Pricing</Label>
               <p className="text-sm text-gray-600 mb-4">
-                Only Monday and Saturday are available for editing. Use the
-                checkboxes to control automatic price application.
+                Set individual prices for each time slot on Monday and Saturday.
+                Other days will automatically follow the pricing rules.
               </p>
+
+              {/* Pricing Control Options */}
+              <div className="flex justify-center space-x-8 mb-6">
+                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <Checkbox
+                    checked={useMondayPrices}
+                    onCheckedChange={(checked) =>
+                      handleMondayPricesToggle(checked as boolean)
+                    }
+                    className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                  />
+                  <span className="text-lg font-medium text-gray-700">
+                    Apply Monday prices to Tue-Fri
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <Checkbox
+                    checked={useSaturdayPrices}
+                    onCheckedChange={(checked) =>
+                      handleSaturdayPricesToggle(checked as boolean)
+                    }
+                    className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                  />
+                  <span className="text-lg font-medium text-gray-700">
+                    Apply Saturday prices to Sunday
+                  </span>
+                </div>
+              </div>
 
               <div className="space-y-3">
                 {dayPricing.map((day, index) => {
@@ -1020,7 +1131,6 @@ export function AdminScheduleManagement() {
                   const isSaturday = index === 5;
                   const isWeekday = index >= 1 && index <= 4; // Tue-Fri
                   const isSunday = index === 6;
-                  const isEditable = isMonday || isSaturday;
                   const isBlurred = isWeekday || isSunday;
                   const canEditManually =
                     (isWeekday && !useMondayPrices) ||
@@ -1029,103 +1139,82 @@ export function AdminScheduleManagement() {
                   return (
                     <div key={day.day}>
                       <div
-                        className={`flex items-center space-x-4 p-3 border rounded-lg ${
+                        className={`border rounded-lg p-4 ${
                           isBlurred && !canEditManually
                             ? "opacity-50 blur-[1px]"
                             : ""
                         }`}
                       >
-                        <div className="w-20 text-sm font-medium">
-                          {day.day}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-20 text-lg font-bold text-gray-900">
+                              {day.day}
+                            </div>
+                          </div>
+
+                          {((isWeekday && useMondayPrices) ||
+                            (isSunday && useSaturdayPrices)) && (
+                            <div className="text-sm text-blue-600 font-medium">
+                              Auto-applied from{" "}
+                              {isWeekday ? "Monday" : "Saturday"}
+                            </div>
+                          )}
                         </div>
 
-                        {isEditable && (
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              checked={day.enabled}
-                              onCheckedChange={(checked) =>
-                                handleEnabledChange(index, checked as boolean)
-                              }
-                              className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
-                            />
-                            <span className="text-sm text-gray-600">
-                              Enable editing
-                            </span>
+                        {/* Time Slot Pricing Grid - Show for all days */}
+                        {!(
+                          (isWeekday && useMondayPrices) ||
+                          (isSunday && useSaturdayPrices)
+                        ) && (
+                          <div className="mt-4">
+                            <p className="text-sm font-medium text-gray-700 mb-3">
+                              Set prices for each time slot:
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                              {pricingTimeSlots.map((timeSlot) => (
+                                <div key={timeSlot} className="space-y-1">
+                                  <Label className="text-xs text-gray-600">
+                                    {timeSlot}
+                                  </Label>
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-xs text-gray-500">
+                                      €
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={
+                                        timeSlotPricing[day.day]?.[timeSlot] ||
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        handleTimeSlotPriceChange(
+                                          day.day,
+                                          timeSlot,
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder="0.00"
+                                      className="text-xs h-8"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
 
-                        <div className="flex-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={day.price}
-                            onChange={(e) =>
-                              handlePriceChange(index, e.target.value)
-                            }
-                            disabled={
-                              (!day.enabled && isEditable) ||
-                              (isWeekday && useMondayPrices) ||
-                              (isSunday && useSaturdayPrices)
-                            }
-                            placeholder="0.00"
-                            className={`${
-                              !day.enabled && isEditable ? "bg-gray-100" : ""
-                            } ${
-                              (isWeekday && useMondayPrices) ||
-                              (isSunday && useSaturdayPrices)
-                                ? "bg-blue-50"
-                                : ""
-                            }`}
-                          />
-                        </div>
-
-                        <div className="w-16 text-sm text-gray-500">
-                          €{day.price}
-                        </div>
-
+                        {/* Show auto-applied message for days that inherit pricing */}
                         {((isWeekday && useMondayPrices) ||
                           (isSunday && useSaturdayPrices)) && (
-                          <div className="text-xs text-blue-600">
-                            Auto-applied
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <p className="text-sm text-blue-700">
+                              Pricing automatically applied from{" "}
+                              {isWeekday ? "Monday" : "Saturday"}
+                            </p>
                           </div>
                         )}
                       </div>
-
-                      {/* Large Monday Prices Checkbox */}
-                      {index === 2 && ( // Show after Wednesday (middle of weekdays)
-                        <div className="flex justify-center my-4">
-                          <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                            <Checkbox
-                              checked={useMondayPrices}
-                              onCheckedChange={(checked) =>
-                                handleMondayPricesToggle(checked as boolean)
-                              }
-                              className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                            />
-                            <span className="text-lg font-medium text-gray-700">
-                              Monday prices?
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Large Saturday Prices Checkbox */}
-                      {index === 5 && ( // Show after Saturday
-                        <div className="flex justify-center my-4">
-                          <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                            <Checkbox
-                              checked={useSaturdayPrices}
-                              onCheckedChange={(checked) =>
-                                handleSaturdayPricesToggle(checked as boolean)
-                              }
-                              className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                            />
-                            <span className="text-lg font-medium text-gray-700">
-                              Saturday prices?
-                            </span>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
