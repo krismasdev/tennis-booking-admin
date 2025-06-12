@@ -201,13 +201,30 @@ export function AdminScheduleManagement() {
       }
     }
 
-    // Add 00:00 at the end
+    return times;
+  };
+
+  // Generate closing time options (includes 00:00 for midnight)
+  const generateClosingTimeOptions = () => {
+    const times = [];
+
+    for (let hour = 6; hour <= 23; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeStr = `${hour.toString().padStart(2, "0")}:${minute
+          .toString()
+          .padStart(2, "0")}`;
+        times.push(timeStr);
+      }
+    }
+
+    // Add 00:00 at the end for closing time only
     times.push("00:00");
 
     return times;
   };
 
   const timeOptions = generateTimeOptions();
+  const closingTimeOptions = generateClosingTimeOptions();
 
   // Generate time slots based on open and close time
   const generateTimeSlots = () => {
@@ -582,7 +599,7 @@ export function AdminScheduleManagement() {
                           <SelectValue placeholder="Select close time" />
                         </SelectTrigger>
                         <SelectContent>
-                          {timeOptions.map((time) => (
+                          {closingTimeOptions.map((time) => (
                             <SelectItem key={`close-${time}`} value={time}>
                               {time}
                             </SelectItem>
@@ -1071,7 +1088,7 @@ export function AdminScheduleManagement() {
                     <SelectValue placeholder="Select close time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {timeOptions.map((time) => (
+                    {closingTimeOptions.map((time) => (
                       <SelectItem key={`view-close-${time}`} value={time}>
                         {time}
                       </SelectItem>
