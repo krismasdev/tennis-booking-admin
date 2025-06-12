@@ -216,8 +216,13 @@ export function AdminScheduleManagement() {
     const slots = [];
     const startHour = parseInt(openTime.split(":")[0]);
     const startMinute = parseInt(openTime.split(":")[1]);
-    const endHour = parseInt(closeTime.split(":")[0]);
+    let endHour = parseInt(closeTime.split(":")[0]);
     const endMinute = parseInt(closeTime.split(":")[1]);
+
+    // If close time is 00:00, treat it as 24:00 (midnight next day)
+    if (endHour === 0 && endMinute === 0) {
+      endHour = 24;
+    }
 
     let currentHour = startHour;
     let currentMinute = startMinute;
@@ -238,9 +243,12 @@ export function AdminScheduleManagement() {
       const startTime = `${currentHour
         .toString()
         .padStart(2, "0")}:${currentMinute.toString().padStart(2, "0")}`;
-      const endTime = `${nextHour.toString().padStart(2, "0")}:${nextMinute
+
+      // Handle display of end time (24:00 should show as 00:00)
+      const displayEndHour = nextHour === 24 ? 0 : nextHour;
+      const endTime = `${displayEndHour
         .toString()
-        .padStart(2, "0")}`;
+        .padStart(2, "0")}:${nextMinute.toString().padStart(2, "0")}`;
 
       // Only add slot if it doesn't exceed the closing time
       if (
@@ -265,8 +273,13 @@ export function AdminScheduleManagement() {
     const slots = [];
     const startHour = parseInt(openTime.split(":")[0]);
     const startMinute = parseInt(openTime.split(":")[1]);
-    const endHour = parseInt(closeTime.split(":")[0]);
+    let endHour = parseInt(closeTime.split(":")[0]);
     const endMinute = parseInt(closeTime.split(":")[1]);
+
+    // If close time is 00:00, treat it as 24:00 (midnight next day)
+    if (endHour === 0 && endMinute === 0) {
+      endHour = 24;
+    }
 
     let currentHour = startHour;
     let currentMinute = startMinute;
@@ -284,13 +297,17 @@ export function AdminScheduleManagement() {
         nextMinute = 0;
       }
 
-      const timeSlot = `${currentHour
+      // Handle display of times (24:00 should show as 00:00)
+      const displayCurrentHour = currentHour === 24 ? 0 : currentHour;
+      const displayNextHour = nextHour === 24 ? 0 : nextHour;
+
+      const timeSlot = `${displayCurrentHour
         .toString()
         .padStart(2, "0")}:${currentMinute
         .toString()
-        .padStart(2, "0")}-${nextHour.toString().padStart(2, "0")}:${nextMinute
+        .padStart(2, "0")}-${displayNextHour
         .toString()
-        .padStart(2, "0")}`;
+        .padStart(2, "0")}:${nextMinute.toString().padStart(2, "0")}`;
 
       // Only add slot if it doesn't exceed the closing time
       if (
