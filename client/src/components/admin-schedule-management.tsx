@@ -1285,6 +1285,95 @@ export function AdminScheduleManagement() {
                     </div>
                   </div>
                 </div>
+                <div className="flex justify-center mt-12">
+                  <div className="overflow-x-auto w-full">
+                    <table className="min-w-full border text-center">
+                      <thead>
+                        <tr>
+                          <th className="border px-2 py-1 bg-gray-100">
+                            Time Slot
+                          </th>
+                          {[
+                            "Monday",
+                            "Tuesday",
+                            "Wednesday",
+                            "Thursday",
+                            "Friday",
+                            "Saturday",
+                            "Sunday",
+                          ].map((day) => (
+                            <th
+                              key={day}
+                              className="border px-2 py-1 bg-gray-100"
+                            >
+                              {day.slice(0, 3)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Build all possible time slots from 06:00 to 23:30 */}
+                        {(() => {
+                          const slots = [];
+                          let currentHour = 6,
+                            currentMinute = 0;
+                          while (currentHour < 24) {
+                            let nextHour = currentHour;
+                            let nextMinute = currentMinute + 30;
+                            if (nextMinute >= 60) {
+                              nextHour += 1;
+                              nextMinute = 0;
+                            }
+                            if (
+                              nextHour > 23 ||
+                              (nextHour === 23 && nextMinute > 30)
+                            )
+                              break;
+                            const start = `${currentHour
+                              .toString()
+                              .padStart(2, "0")}:${currentMinute
+                              .toString()
+                              .padStart(2, "0")}`;
+                            const end = `${nextHour
+                              .toString()
+                              .padStart(2, "0")}:${nextMinute
+                              .toString()
+                              .padStart(2, "0")}`;
+                            const slotKey = `${start}-${end}`;
+                            slots.push(slotKey);
+                            currentHour = nextHour;
+                            currentMinute = nextMinute;
+                          }
+                          return slots;
+                        })().map((slotKey) => (
+                          <tr key={slotKey}>
+                            <td className="border px-2 py-1 font-mono text-xs">
+                              {slotKey}
+                            </td>
+                            {[
+                              "Monday",
+                              "Tuesday",
+                              "Wednesday",
+                              "Thursday",
+                              "Friday",
+                              "Saturday",
+                              "Sunday",
+                            ].map((day) => (
+                              <td key={day} className="border px-2 py-1">
+                                <span className="inline-flex items-center">
+                                  <span className="text-gray-500 text-xs mr-1">
+                                    €
+                                  </span>
+                                  {timeSlotPricing[day]?.[slotKey] || "0.00"}
+                                </span>
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           )}
