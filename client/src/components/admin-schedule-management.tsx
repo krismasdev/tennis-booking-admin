@@ -57,6 +57,8 @@ interface Court {
   description: string;
   hourlyRate: string;
   isActive: boolean;
+  openTime: string;
+  closeTime: string;
 }
 
 interface DayPricing {
@@ -587,6 +589,7 @@ export function AdminScheduleManagement() {
 
   const handleViewCourt = async (court: Court) => {
     setSelectedCourt(court);
+
     // Parse court data to populate the form
     const workingHours = court.description.match(
       /Open (\d{2}:\d{2}) - (\d{2}:\d{2})/
@@ -594,6 +597,10 @@ export function AdminScheduleManagement() {
     if (workingHours) {
       setOpenTime(workingHours[1]);
       setCloseTime(workingHours[2]);
+    } else {
+      // If no working hours in description, use the actual open/close times
+      setOpenTime(court.openTime);
+      setCloseTime(court.closeTime);
     }
     setCourtName(court.name);
 
@@ -646,37 +653,56 @@ export function AdminScheduleManagement() {
       setUseMondayPrices(useMondayForWeekdays);
       setUseSaturdayPrices(useSaturdayForSunday);
 
-      // Set day pricing
-      setDayPricing([
-        { day: "Monday", price: court.hourlyRate, enabled: enabledDays.has(1) },
+      // Set day pricing with actual prices from pricing rules
+      const dayPricingData = [
+        {
+          day: "Monday",
+          price: Object.values(mondayPricing)[0] || court.hourlyRate,
+          enabled: enabledDays.has(1),
+        },
         {
           day: "Tuesday",
-          price: court.hourlyRate,
+          price: useMondayForWeekdays
+            ? Object.values(mondayPricing)[0] || court.hourlyRate
+            : court.hourlyRate,
           enabled: enabledDays.has(2),
         },
         {
           day: "Wednesday",
-          price: court.hourlyRate,
+          price: useMondayForWeekdays
+            ? Object.values(mondayPricing)[0] || court.hourlyRate
+            : court.hourlyRate,
           enabled: enabledDays.has(3),
         },
         {
           day: "Thursday",
-          price: court.hourlyRate,
+          price: useMondayForWeekdays
+            ? Object.values(mondayPricing)[0] || court.hourlyRate
+            : court.hourlyRate,
           enabled: enabledDays.has(4),
         },
-        { day: "Friday", price: court.hourlyRate, enabled: enabledDays.has(5) },
+        {
+          day: "Friday",
+          price: useMondayForWeekdays
+            ? Object.values(mondayPricing)[0] || court.hourlyRate
+            : court.hourlyRate,
+          enabled: enabledDays.has(5),
+        },
         {
           day: "Saturday",
-          price: (parseFloat(court.hourlyRate) + 5).toString(),
+          price: Object.values(saturdayPricing)[0] || court.hourlyRate,
           enabled: enabledDays.has(6),
         },
         {
           day: "Sunday",
-          price: (parseFloat(court.hourlyRate) + 5).toString(),
+          price: useSaturdayForSunday
+            ? Object.values(saturdayPricing)[0] || court.hourlyRate
+            : court.hourlyRate,
           enabled: enabledDays.has(0),
         },
-      ]);
+      ];
 
+      setDayPricing(dayPricingData);
       setIsViewCourtDialogOpen(true);
     } catch (error: any) {
       toast({
