@@ -1007,10 +1007,10 @@ export function AdminScheduleManagement() {
           <div className="mb-6">
             <Label htmlFor="court-select">Select Court</Label>
             <Select
-              value={selectedCourt?.id.toString()}
-              onValueChange={(value) => {
+              value={selectedCourt?.id?.toString() || ""}
+              onValueChange={(value: string) => {
                 const court = courts.find((c) => c.id.toString() === value);
-                if (court) handleViewCourt(court);
+                if (court) setSelectedCourt(court);
               }}
             >
               <SelectTrigger className="w-[300px]">
@@ -1048,96 +1048,109 @@ export function AdminScheduleManagement() {
                 </Button>
               </div>
 
-              {/* Time Slots and Pricing */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Monday-Friday Pricing */}
-                <div className="border rounded-lg p-4">
-                  <h4 className="text-lg font-semibold mb-4">
-                    Weekday Pricing
-                  </h4>
-                  <div className="space-y-3">
-                    {dayPricing.slice(0, 5).map((day, index) => (
-                      <div
-                        key={day.day}
-                        className={`p-3 rounded-lg ${
-                          index === 0 ? "bg-blue-50" : "bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">{day.day}</span>
-                          <span className="text-sm text-gray-600">
-                            {index > 0 && useMondayPrices
-                              ? "Same as Monday"
-                              : day.enabled
-                              ? "Custom Pricing"
-                              : "Not Available"}
-                          </span>
-                        </div>
-                        {day.enabled && (!useMondayPrices || index === 0) && (
-                          <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(timeSlotPricing[day.day] || {}).map(
-                              ([timeSlot, price]) => (
-                                <div
-                                  key={timeSlot}
-                                  className="flex justify-between items-center text-sm"
-                                >
-                                  <span className="text-gray-600">
-                                    {timeSlot}
-                                  </span>
-                                  <span className="font-medium">€{price}</span>
-                                </div>
-                              )
-                            )}
+              {/* Time Slots and Pricing Table */}
+              <div className="overflow-x-auto">
+                <div className="grid grid-cols-4 gap-8">
+                  {/* Define time slot groups */}
+                  {[
+                    {
+                      label: "Morning",
+                      times: [
+                        "06:00",
+                        "06:30",
+                        "07:00",
+                        "07:30",
+                        "08:00",
+                        "08:30",
+                        "09:00",
+                        "09:30",
+                        "10:00",
+                        "10:30",
+                        "11:00",
+                        "11:30",
+                      ],
+                    },
+                    {
+                      label: "Afternoon",
+                      times: [
+                        "12:00",
+                        "12:30",
+                        "13:00",
+                        "13:30",
+                        "14:00",
+                        "14:30",
+                        "15:00",
+                        "15:30",
+                        "16:00",
+                        "16:30",
+                      ],
+                    },
+                    {
+                      label: "Peak Hours",
+                      times: [
+                        "17:00",
+                        "17:30",
+                        "18:00",
+                        "18:30",
+                        "19:00",
+                        "19:30",
+                        "20:00",
+                        "20:30",
+                        "21:00",
+                        "21:30",
+                        "22:00",
+                        "22:30",
+                        "23:00",
+                        "23:30",
+                      ],
+                    },
+                  ].map((group) => (
+                    <div key={group.label}>
+                      <div className="font-semibold mb-2">{group.label}</div>
+                      {group.times.map((start) => {
+                        // Find the corresponding time slot (e.g. '06:00-06:30')
+                        const startHour = parseInt(start.split(":")[0], 10);
+                        const startMinute = parseInt(start.split(":")[1], 10);
+                        let endHour = startHour;
+                        let endMinute = startMinute + 30;
+                        if (endMinute >= 60) {
+                          endHour += 1;
+                          endMinute = 0;
+                        }
+                        const displayEndHour = endHour === 24 ? 0 : endHour;
+                        const end = `${displayEndHour
+                          .toString()
+                          .padStart(2, "0")}:${endMinute
+                          .toString()
+                          .padStart(2, "0")}`;
+                        const slotKey = `${start}-${end}`;
+                        // Use Monday as default for display, or fallback to any enabled day
+                        const day = dayPricing[0]?.enabled
+                          ? "Monday"
+                          : dayPricing.find((d) => d.enabled)?.day || "Monday";
+                        const price = timeSlotPricing[day]?.[slotKey] || "0.00";
+                        return (
+                          <div key={slotKey} className="flex items-center mb-2">
+                            <span className="w-24 text-sm">{slotKey}</span>
+                            <div className="relative w-24">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">
+                                €
+                              </span>
+                              <input
+                                type="number"
+                                value={price}
+                                readOnly
+                                className="pl-5 pr-2 py-1 w-full border rounded text-xs bg-gray-50 appearance-none focus:outline-none"
+                                style={{ MozAppearance: "textfield" }}
+                                min="0"
+                                step="0.01"
+                              />
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Weekend Pricing */}
-                <div className="border rounded-lg p-4">
-                  <h4 className="text-lg font-semibold mb-4">
-                    Weekend Pricing
-                  </h4>
-                  <div className="space-y-3">
-                    {dayPricing.slice(5).map((day, index) => (
-                      <div
-                        key={day.day}
-                        className={`p-3 rounded-lg ${
-                          index === 0 ? "bg-blue-50" : "bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">{day.day}</span>
-                          <span className="text-sm text-gray-600">
-                            {index === 1 && useSaturdayPrices
-                              ? "Same as Saturday"
-                              : day.enabled
-                              ? "Custom Pricing"
-                              : "Not Available"}
-                          </span>
-                        </div>
-                        {day.enabled && (!useSaturdayPrices || index === 0) && (
-                          <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(timeSlotPricing[day.day] || {}).map(
-                              ([timeSlot, price]) => (
-                                <div
-                                  key={timeSlot}
-                                  className="flex justify-between items-center text-sm"
-                                >
-                                  <span className="text-gray-600">
-                                    {timeSlot}
-                                  </span>
-                                  <span className="font-medium">€{price}</span>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
