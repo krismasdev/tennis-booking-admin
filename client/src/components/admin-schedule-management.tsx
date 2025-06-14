@@ -462,19 +462,8 @@ export function AdminScheduleManagement() {
     }
 
     try {
-      // First create the court
-      const courtData: CourtFormData = {
-        name: courtName,
-        description: `Open ${openTime} - ${closeTime}`,
-        hourlyRate: dayPricing[0].price || "0",
-        isActive: true,
-      };
-
-      const courtResponse = await addCourtMutation.mutateAsync(courtData);
-      const newCourtId = courtResponse.id;
-
-      // Then create pricing rules for each day and time slot
-      const pricingUpdates = [];
+      // Prepare pricing rules
+      const pricingRules = [];
 
       // Process Monday pricing
       if (dayPricing[0].enabled) {
@@ -482,11 +471,10 @@ export function AdminScheduleManagement() {
           timeSlotPricing.Monday
         )) {
           if (price) {
-            pricingUpdates.push({
-              courtId: newCourtId,
+            pricingRules.push({
+              dayOfWeek: 1, // Monday
               timeSlot,
               price,
-              dayOfWeek: 1, // Monday
             });
           }
         }
@@ -498,11 +486,10 @@ export function AdminScheduleManagement() {
           timeSlotPricing.Saturday
         )) {
           if (price) {
-            pricingUpdates.push({
-              courtId: newCourtId,
+            pricingRules.push({
+              dayOfWeek: 6, // Saturday
               timeSlot,
               price,
-              dayOfWeek: 6, // Saturday
             });
           }
         }
@@ -516,11 +503,10 @@ export function AdminScheduleManagement() {
             timeSlotPricing.Monday
           )) {
             if (price) {
-              pricingUpdates.push({
-                courtId: newCourtId,
+              pricingRules.push({
+                dayOfWeek: day,
                 timeSlot,
                 price,
-                dayOfWeek: day,
               });
             }
           }
@@ -533,22 +519,27 @@ export function AdminScheduleManagement() {
           timeSlotPricing.Saturday
         )) {
           if (price) {
-            pricingUpdates.push({
-              courtId: newCourtId,
+            pricingRules.push({
+              dayOfWeek: 0, // Sunday
               timeSlot,
               price,
-              dayOfWeek: 0, // Sunday
             });
           }
         }
       }
 
-      // Save all pricing rules
-      if (pricingUpdates.length > 0) {
-        await apiRequest("POST", "/api/pricing-rules/batch", {
-          updates: pricingUpdates,
-        });
-      }
+      // Create court with pricing rules
+      const courtData: CourtFormData = {
+        name: courtName,
+        description: `Open ${openTime} - ${closeTime}`,
+        openTime,
+        closeTime,
+        hourlyRate: dayPricing[0].price || "0",
+        isActive: true,
+        pricingRules,
+      };
+
+      await addCourtMutation.mutateAsync(courtData);
 
       toast({
         title: "Court Added",

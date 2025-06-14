@@ -13,6 +13,7 @@ import {
   type InsertBooking,
   type TimeSlotWithCourt,
   type BookingWithDetails,
+  courtPricingRules,
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
@@ -182,22 +183,70 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCourt(insertCourt: InsertCourt): Promise<Court> {
-    await db.insert(courts).values(insertCourt);
-    const [court] = await db
-      .select()
-      .from(courts)
-      .orderBy(desc(courts.id))
-      .limit(1);
-    return court;
+    const { pricingRules, ...courtData } = insertCourt;
+
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // Insert the court
+      await tx.insert(courts).values(courtData);
+      const [court] = await tx
+        .select()
+        .from(courts)
+        .orderBy(desc(courts.id))
+        .limit(1);
+
+      // Insert pricing rules if provided
+      if (pricingRules && pricingRules.length > 0) {
+        await tx.insert(courtPricingRules).values(
+          pricingRules.map((rule) => ({
+            courtId: court.id,
+            dayOfWeek: rule.dayOfWeek,
+            timeSlot: rule.timeSlot,
+            price: rule.price,
+            isActive: true,
+          }))
+        );
+      }
+
+      return court;
+    });
   }
 
   async updateCourt(
     id: number,
     updateData: Partial<InsertCourt>
   ): Promise<Court | undefined> {
-    await db.update(courts).set(updateData).where(eq(courts.id, id));
-    const [court] = await db.select().from(courts).where(eq(courts.id, id));
-    return court || undefined;
+    const { pricingRules, ...courtData } = updateData;
+
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // Update the court
+      await tx.update(courts).set(courtData).where(eq(courts.id, id));
+      const [court] = await tx.select().from(courts).where(eq(courts.id, id));
+
+      // Update pricing rules if provided
+      if (pricingRules) {
+        // Delete existing rules
+        await tx
+          .delete(courtPricingRules)
+          .where(eq(courtPricingRules.courtId, id));
+
+        // Insert new rules
+        if (pricingRules.length > 0) {
+          await tx.insert(courtPricingRules).values(
+            pricingRules.map((rule) => ({
+              courtId: id,
+              dayOfWeek: rule.dayOfWeek,
+              timeSlot: rule.timeSlot,
+              price: rule.price,
+              isActive: true,
+            }))
+          );
+        }
+      }
+
+      return court || undefined;
+    });
   }
 
   async deleteCourt(id: number): Promise<boolean> {
@@ -441,14 +490,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPricingRules(courtId: number): Promise<any[]> {
-    // For now, return empty array as we don't have a pricing rules table yet
-    // This would typically query a pricing_rules table
-    return [];
+    return await this.getCourtPricingRules(courtId);
   }
 
   async getAllPricingRules(): Promise<any[]> {
-    // For now, return empty array as we don't have a pricing rules table yet
-    return [];
+    return await db
+      .select()
+      .from(courtPricingRules)
+      .where(eq(courtPricingRules.isActive, true));
   }
 
   async createOrUpdatePricingRule(
@@ -456,15 +505,40 @@ export class DatabaseStorage implements IStorage {
     timeSlot: string,
     price: string
   ): Promise<any> {
-    // For now, return a mock pricing rule
-    // This would typically insert/update a pricing_rules table
-    return {
-      id: Math.random(),
-      courtId,
-      timeSlot,
-      price,
-      isActive: true,
-    };
+    const [rule] = await db
+      .select()
+      .from(courtPricingRules)
+      .where(
+        eq(courtPricingRules.courtId, courtId) &&
+          eq(courtPricingRules.timeSlot, timeSlot)
+      );
+
+    if (rule) {
+      await db
+        .update(courtPricingRules)
+        .set({ price })
+        .where(eq(courtPricingRules.id, rule.id));
+      return rule;
+    } else {
+      const [newRule] = await db
+        .insert(courtPricingRules)
+        .values({
+          courtId,
+          dayOfWeek: 0, // Assuming default dayOfWeek
+          timeSlot,
+          price,
+          isActive: true,
+        })
+        .returning({ id: courtPricingRules.id });
+      return newRule;
+    }
+  }
+
+  async getCourtPricingRules(courtId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(courtPricingRules)
+      .where(eq(courtPricingRules.courtId, courtId));
   }
 }
 

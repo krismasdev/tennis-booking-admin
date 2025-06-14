@@ -27,7 +27,20 @@ export const courts = mysqlTable("courts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  openTime: text("open_time").notNull(), // Format: "HH:MM"
+  closeTime: text("close_time").notNull(), // Format: "HH:MM"
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const courtPricingRules = mysqlTable("court_pricing_rules", {
+  id: serial("id").primaryKey(),
+  courtId: int("court_id")
+    .references(() => courts.id)
+    .notNull(),
+  dayOfWeek: int("day_of_week").notNull(), // 0-6, Sunday-Saturday
+  timeSlot: text("time_slot").notNull(), // Format: "HH:MM-HH:MM"
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
 });
 
@@ -63,6 +76,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const courtsRelations = relations(courts, ({ many }) => ({
   timeSlots: many(timeSlots),
+  pricingRules: many(courtPricingRules),
 }));
 
 export const timeSlotsRelations = relations(timeSlots, ({ one, many }) => ({
@@ -84,6 +98,16 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
   }),
 }));
 
+export const courtPricingRulesRelations = relations(
+  courtPricingRules,
+  ({ one }) => ({
+    court: one(courts, {
+      fields: [courtPricingRules.courtId],
+      references: [courts.id],
+    }),
+  })
+);
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users)
   .omit({
@@ -96,9 +120,21 @@ export const insertUserSchema = createInsertSchema(users)
     role: z.enum(["user", "admin", "vendor"]).default("user"),
   });
 
-export const insertCourtSchema = createInsertSchema(courts).omit({
-  id: true,
-});
+export const insertCourtSchema = createInsertSchema(courts)
+  .omit({
+    id: true,
+  })
+  .extend({
+    pricingRules: z
+      .array(
+        z.object({
+          dayOfWeek: z.number().min(0).max(6),
+          timeSlot: z.string(),
+          price: z.string(),
+        })
+      )
+      .optional(),
+  });
 
 export const insertTimeSlotSchema = createInsertSchema(timeSlots).omit({
   id: true,
