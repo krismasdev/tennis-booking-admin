@@ -1003,61 +1003,145 @@ export function AdminScheduleManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {courts.map((court) => {
-              const priceRanges = generatePriceRanges(court);
-              const workingHours = court.description.includes("Open")
-                ? court.description.replace("Open ", "")
-                : "7:00 - 23:00";
+          {/* Court Selection */}
+          <div className="mb-6">
+            <Label htmlFor="court-select">Select Court</Label>
+            <Select
+              value={selectedCourt?.id.toString()}
+              onValueChange={(value) => {
+                const court = courts.find((c) => c.id.toString() === value);
+                if (court) handleViewCourt(court);
+              }}
+            >
+              <SelectTrigger className="w-[300px]">
+                <SelectValue placeholder="Select a court" />
+              </SelectTrigger>
+              <SelectContent>
+                {courts.map((court) => (
+                  <SelectItem key={court.id} value={court.id.toString()}>
+                    {court.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              return (
-                <div
-                  key={court.id}
-                  className="border rounded-lg p-4 cursor-pointer hover:shadow-lg hover:border-blue-300 transition-all duration-200 bg-white"
-                  onClick={() => handleViewCourt(court)}
+          {/* Court Details */}
+          {selectedCourt && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {selectedCourt.name}
+                  </h3>
+                  <p className="text-gray-600 mt-1">
+                    Working Hours: {selectedCourt.openTime} -{" "}
+                    {selectedCourt.closeTime}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setIsViewCourtDialogOpen(true)}
+                  variant="outline"
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-bold text-lg text-gray-900">
-                      {court.name}
-                    </h3>
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                      Active
-                    </span>
-                  </div>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit Court
+                </Button>
+              </div>
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <span className="font-medium">Working Hours:</span>
-                      <span className="ml-2">{workingHours}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Price Ranges:
-                    </p>
-                    {priceRanges.map((range, index) => (
+              {/* Time Slots and Pricing */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Monday-Friday Pricing */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-lg font-semibold mb-4">
+                    Weekday Pricing
+                  </h4>
+                  <div className="space-y-3">
+                    {dayPricing.slice(0, 5).map((day, index) => (
                       <div
-                        key={index}
-                        className="flex justify-between items-center text-sm"
+                        key={day.day}
+                        className={`p-3 rounded-lg ${
+                          index === 0 ? "bg-blue-50" : "bg-gray-50"
+                        }`}
                       >
-                        <span className="text-gray-600">{range.time}</span>
-                        <span className="font-semibold text-blue-600">
-                          {range.price}€
-                        </span>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{day.day}</span>
+                          <span className="text-sm text-gray-600">
+                            {index > 0 && useMondayPrices
+                              ? "Same as Monday"
+                              : day.enabled
+                              ? "Custom Pricing"
+                              : "Not Available"}
+                          </span>
+                        </div>
+                        {day.enabled && (!useMondayPrices || index === 0) && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {Object.entries(timeSlotPricing[day.day] || {}).map(
+                              ([timeSlot, price]) => (
+                                <div
+                                  key={timeSlot}
+                                  className="flex justify-between items-center text-sm"
+                                >
+                                  <span className="text-gray-600">
+                                    {timeSlot}
+                                  </span>
+                                  <span className="font-medium">€{price}</span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-500 text-center">
-                      Click to view details
-                    </p>
+                {/* Weekend Pricing */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-lg font-semibold mb-4">
+                    Weekend Pricing
+                  </h4>
+                  <div className="space-y-3">
+                    {dayPricing.slice(5).map((day, index) => (
+                      <div
+                        key={day.day}
+                        className={`p-3 rounded-lg ${
+                          index === 0 ? "bg-blue-50" : "bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{day.day}</span>
+                          <span className="text-sm text-gray-600">
+                            {index === 1 && useSaturdayPrices
+                              ? "Same as Saturday"
+                              : day.enabled
+                              ? "Custom Pricing"
+                              : "Not Available"}
+                          </span>
+                        </div>
+                        {day.enabled && (!useSaturdayPrices || index === 0) && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {Object.entries(timeSlotPricing[day.day] || {}).map(
+                              ([timeSlot, price]) => (
+                                <div
+                                  key={timeSlot}
+                                  className="flex justify-between items-center text-sm"
+                                >
+                                  <span className="text-gray-600">
+                                    {timeSlot}
+                                  </span>
+                                  <span className="font-medium">€{price}</span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
