@@ -442,7 +442,7 @@ export function AdminScheduleManagement() {
     });
   };
 
-  const handleAddCourt = () => {
+  const handleAddCourt = async () => {
     if (!courtName.trim()) {
       toast({
         title: "Error",
@@ -461,16 +461,110 @@ export function AdminScheduleManagement() {
       return;
     }
 
-    // For now, just add the court with basic info
-    // In a real implementation, you'd also save the pricing and time slot info
-    const courtData: CourtFormData = {
-      name: courtName,
-      description: `Open ${openTime} - ${closeTime}`,
-      hourlyRate: dayPricing[0].price || "0",
-      isActive: true,
-    };
+    try {
+      // First create the court
+      const courtData: CourtFormData = {
+        name: courtName,
+        description: `Open ${openTime} - ${closeTime}`,
+        hourlyRate: dayPricing[0].price || "0",
+        isActive: true,
+      };
 
-    addCourtMutation.mutate(courtData);
+      const courtResponse = await addCourtMutation.mutateAsync(courtData);
+      const newCourtId = courtResponse.id;
+
+      // Then create pricing rules for each day and time slot
+      const pricingUpdates = [];
+
+      // Process Monday pricing
+      if (dayPricing[0].enabled) {
+        for (const [timeSlot, price] of Object.entries(
+          timeSlotPricing.Monday
+        )) {
+          if (price) {
+            pricingUpdates.push({
+              courtId: newCourtId,
+              timeSlot,
+              price,
+              dayOfWeek: 1, // Monday
+            });
+          }
+        }
+      }
+
+      // Process Saturday pricing
+      if (dayPricing[5].enabled) {
+        for (const [timeSlot, price] of Object.entries(
+          timeSlotPricing.Saturday
+        )) {
+          if (price) {
+            pricingUpdates.push({
+              courtId: newCourtId,
+              timeSlot,
+              price,
+              dayOfWeek: 6, // Saturday
+            });
+          }
+        }
+      }
+
+      // If using Monday prices for Tue-Fri, create those rules
+      if (useMondayPrices && dayPricing[0].enabled) {
+        for (let day = 2; day <= 5; day++) {
+          // Tue-Fri
+          for (const [timeSlot, price] of Object.entries(
+            timeSlotPricing.Monday
+          )) {
+            if (price) {
+              pricingUpdates.push({
+                courtId: newCourtId,
+                timeSlot,
+                price,
+                dayOfWeek: day,
+              });
+            }
+          }
+        }
+      }
+
+      // If using Saturday prices for Sunday, create those rules
+      if (useSaturdayPrices && dayPricing[5].enabled) {
+        for (const [timeSlot, price] of Object.entries(
+          timeSlotPricing.Saturday
+        )) {
+          if (price) {
+            pricingUpdates.push({
+              courtId: newCourtId,
+              timeSlot,
+              price,
+              dayOfWeek: 0, // Sunday
+            });
+          }
+        }
+      }
+
+      // Save all pricing rules
+      if (pricingUpdates.length > 0) {
+        await apiRequest("POST", "/api/pricing-rules/batch", {
+          updates: pricingUpdates,
+        });
+      }
+
+      toast({
+        title: "Court Added",
+        description: "Court and pricing rules have been successfully added.",
+      });
+      setIsAddCourtDialogOpen(false);
+      handleResetCourtForm();
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing-rules"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleResetCourtForm = () => {
@@ -500,7 +594,7 @@ export function AdminScheduleManagement() {
     }
   };
 
-  const handleViewCourt = (court: Court) => {
+  const handleViewCourt = async (court: Court) => {
     setSelectedCourt(court);
     // Parse court data to populate the form
     const workingHours = court.description.match(
@@ -511,30 +605,95 @@ export function AdminScheduleManagement() {
       setCloseTime(workingHours[2]);
     }
     setCourtName(court.name);
-    // For demo purposes, set some sample pricing data
-    // In a real app, you'd fetch this from the backend
-    setDayPricing([
-      { day: "Monday", price: court.hourlyRate, enabled: true },
-      { day: "Tuesday", price: court.hourlyRate, enabled: false },
-      { day: "Wednesday", price: court.hourlyRate, enabled: false },
-      { day: "Thursday", price: court.hourlyRate, enabled: false },
-      { day: "Friday", price: court.hourlyRate, enabled: false },
-      {
-        day: "Saturday",
-        price: (parseFloat(court.hourlyRate) + 5).toString(),
-        enabled: true,
-      },
-      {
-        day: "Sunday",
-        price: (parseFloat(court.hourlyRate) + 5).toString(),
-        enabled: false,
-      },
-    ]);
-    setTimeSlotPricing({
-      Monday: {},
-      Saturday: {},
-    });
-    setIsViewCourtDialogOpen(true);
+
+    try {
+      // Fetch pricing rules for this court
+      const response = await fetch(`/api/pricing-rules?courtId=${court.id}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch pricing rules");
+      const pricingRules = await response.json();
+
+      // Initialize pricing state
+      const mondayPricing: Record<string, string> = {};
+      const saturdayPricing: Record<string, string> = {};
+      const enabledDays = new Set<number>();
+
+      // Process pricing rules
+      pricingRules.forEach((rule: any) => {
+        const timeSlot = rule.timeSlot;
+        const price = rule.price;
+        const dayOfWeek = rule.dayOfWeek;
+
+        // Store pricing for Monday and Saturday
+        if (dayOfWeek === 1) {
+          // Monday
+          mondayPricing[timeSlot] = price;
+          enabledDays.add(1);
+        } else if (dayOfWeek === 6) {
+          // Saturday
+          saturdayPricing[timeSlot] = price;
+          enabledDays.add(6);
+        }
+      });
+
+      // Determine if Monday prices are used for Tue-Fri
+      const useMondayForWeekdays = pricingRules.some(
+        (rule: any) => rule.dayOfWeek >= 2 && rule.dayOfWeek <= 5
+      );
+
+      // Determine if Saturday prices are used for Sunday
+      const useSaturdayForSunday = pricingRules.some(
+        (rule: any) => rule.dayOfWeek === 0
+      );
+
+      // Update state
+      setTimeSlotPricing({
+        Monday: mondayPricing,
+        Saturday: saturdayPricing,
+      });
+      setUseMondayPrices(useMondayForWeekdays);
+      setUseSaturdayPrices(useSaturdayForSunday);
+
+      // Set day pricing
+      setDayPricing([
+        { day: "Monday", price: court.hourlyRate, enabled: enabledDays.has(1) },
+        {
+          day: "Tuesday",
+          price: court.hourlyRate,
+          enabled: enabledDays.has(2),
+        },
+        {
+          day: "Wednesday",
+          price: court.hourlyRate,
+          enabled: enabledDays.has(3),
+        },
+        {
+          day: "Thursday",
+          price: court.hourlyRate,
+          enabled: enabledDays.has(4),
+        },
+        { day: "Friday", price: court.hourlyRate, enabled: enabledDays.has(5) },
+        {
+          day: "Saturday",
+          price: (parseFloat(court.hourlyRate) + 5).toString(),
+          enabled: enabledDays.has(6),
+        },
+        {
+          day: "Sunday",
+          price: (parseFloat(court.hourlyRate) + 5).toString(),
+          enabled: enabledDays.has(0),
+        },
+      ]);
+
+      setIsViewCourtDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to load court pricing rules: " + error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const generatePriceRanges = (court: Court) => {
@@ -1309,15 +1468,120 @@ export function AdminScheduleManagement() {
               </Button>
               <Button
                 type="button"
-                onClick={() => {
-                  // Here you would implement the update court functionality
-                  toast({
-                    title: "Court Updated",
-                    description:
-                      "Court details have been updated successfully.",
-                  });
-                  setIsViewCourtDialogOpen(false);
-                  handleResetCourtForm();
+                onClick={async () => {
+                  try {
+                    if (!selectedCourt) return;
+
+                    // Update court basic info
+                    const courtData: Partial<CourtFormData> = {
+                      name: courtName,
+                      description: `Open ${openTime} - ${closeTime}`,
+                      hourlyRate: dayPricing[0].price || "0",
+                    };
+
+                    await apiRequest(
+                      "PUT",
+                      `/api/courts/${selectedCourt.id}`,
+                      courtData
+                    );
+
+                    // Prepare pricing updates
+                    const pricingUpdates = [];
+
+                    // Process Monday pricing
+                    if (dayPricing[0].enabled) {
+                      for (const [timeSlot, price] of Object.entries(
+                        timeSlotPricing.Monday
+                      )) {
+                        if (price) {
+                          pricingUpdates.push({
+                            courtId: selectedCourt.id,
+                            timeSlot,
+                            price,
+                            dayOfWeek: 1, // Monday
+                          });
+                        }
+                      }
+                    }
+
+                    // Process Saturday pricing
+                    if (dayPricing[5].enabled) {
+                      for (const [timeSlot, price] of Object.entries(
+                        timeSlotPricing.Saturday
+                      )) {
+                        if (price) {
+                          pricingUpdates.push({
+                            courtId: selectedCourt.id,
+                            timeSlot,
+                            price,
+                            dayOfWeek: 6, // Saturday
+                          });
+                        }
+                      }
+                    }
+
+                    // If using Monday prices for Tue-Fri, create those rules
+                    if (useMondayPrices && dayPricing[0].enabled) {
+                      for (let day = 2; day <= 5; day++) {
+                        // Tue-Fri
+                        for (const [timeSlot, price] of Object.entries(
+                          timeSlotPricing.Monday
+                        )) {
+                          if (price) {
+                            pricingUpdates.push({
+                              courtId: selectedCourt.id,
+                              timeSlot,
+                              price,
+                              dayOfWeek: day,
+                            });
+                          }
+                        }
+                      }
+                    }
+
+                    // If using Saturday prices for Sunday, create those rules
+                    if (useSaturdayPrices && dayPricing[5].enabled) {
+                      for (const [timeSlot, price] of Object.entries(
+                        timeSlotPricing.Saturday
+                      )) {
+                        if (price) {
+                          pricingUpdates.push({
+                            courtId: selectedCourt.id,
+                            timeSlot,
+                            price,
+                            dayOfWeek: 0, // Sunday
+                          });
+                        }
+                      }
+                    }
+
+                    // Save all pricing rules
+                    if (pricingUpdates.length > 0) {
+                      await apiRequest("POST", "/api/pricing-rules/batch", {
+                        updates: pricingUpdates,
+                      });
+                    }
+
+                    toast({
+                      title: "Court Updated",
+                      description:
+                        "Court details and pricing rules have been updated successfully.",
+                    });
+                    setIsViewCourtDialogOpen(false);
+                    handleResetCourtForm();
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/courts"],
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/pricing-rules"],
+                    });
+                  } catch (error: any) {
+                    toast({
+                      title: "Error",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                  }
                 }}
                 className="flex-1"
               >
