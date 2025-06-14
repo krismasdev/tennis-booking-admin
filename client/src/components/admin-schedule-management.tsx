@@ -1003,265 +1003,287 @@ export function AdminScheduleManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Court Selection */}
-          <div className="mb-6">
-            <Label htmlFor="court-select">Select Court</Label>
-            <Select
-              value={selectedCourt?.id?.toString() || ""}
-              onValueChange={async (value: string) => {
-                const court = courts.find((c) => c.id.toString() === value);
-                if (court) {
-                  setSelectedCourt(court);
-                  // Parse working hours
-                  const workingHours = court.description.match(
-                    /Open (\d{2}:\d{2}) - (\d{2}:\d{2})/
-                  );
-                  if (workingHours) {
-                    setOpenTime(workingHours[1]);
-                    setCloseTime(workingHours[2]);
-                  } else {
-                    setOpenTime(court.openTime);
-                    setCloseTime(court.closeTime);
+          {/* Centered Court Selection */}
+          <div className="flex justify-center mb-8">
+            <div className="w-full max-w-md">
+              <Label htmlFor="court-select">Select Court</Label>
+              <Select
+                value={selectedCourt?.id?.toString() || ""}
+                onValueChange={async (value: string) => {
+                  const court = courts.find((c) => c.id.toString() === value);
+                  if (court) {
+                    setSelectedCourt(court);
+                    // Parse working hours
+                    const workingHours = court.description.match(
+                      /Open (\d{2}:\d{2}) - (\d{2}:\d{2})/
+                    );
+                    if (workingHours) {
+                      setOpenTime(workingHours[1]);
+                      setCloseTime(workingHours[2]);
+                    } else {
+                      setOpenTime(court.openTime);
+                      setCloseTime(court.closeTime);
+                    }
+                    setCourtName(court.name);
+                    try {
+                      // Fetch pricing rules for this court
+                      const response = await fetch(
+                        `/api/pricing-rules?courtId=${court.id}`,
+                        {
+                          credentials: "include",
+                        }
+                      );
+                      if (!response.ok)
+                        throw new Error("Failed to fetch pricing rules");
+                      const pricingRules = await response.json();
+                      // Initialize pricing state
+                      const mondayPricing: Record<string, string> = {};
+                      const saturdayPricing: Record<string, string> = {};
+                      const enabledDays = new Set<number>();
+                      // Process pricing rules
+                      pricingRules.forEach((rule: any) => {
+                        const timeSlot = rule.timeSlot;
+                        const price = rule.price;
+                        const dayOfWeek = rule.dayOfWeek;
+                        if (dayOfWeek === 1) {
+                          mondayPricing[timeSlot] = price;
+                          enabledDays.add(1);
+                        } else if (dayOfWeek === 6) {
+                          saturdayPricing[timeSlot] = price;
+                          enabledDays.add(6);
+                        }
+                      });
+                      // Determine if Monday prices are used for Tue-Fri
+                      const useMondayForWeekdays = pricingRules.some(
+                        (rule: any) =>
+                          rule.dayOfWeek >= 2 && rule.dayOfWeek <= 5
+                      );
+                      // Determine if Saturday prices are used for Sunday
+                      const useSaturdayForSunday = pricingRules.some(
+                        (rule: any) => rule.dayOfWeek === 0
+                      );
+                      setTimeSlotPricing({
+                        Monday: mondayPricing,
+                        Saturday: saturdayPricing,
+                      });
+                      setUseMondayPrices(useMondayForWeekdays);
+                      setUseSaturdayPrices(useSaturdayForSunday);
+                      // Set day pricing with actual prices from pricing rules
+                      const dayPricingData = [
+                        {
+                          day: "Monday",
+                          price:
+                            Object.values(mondayPricing)[0] || court.hourlyRate,
+                          enabled: enabledDays.has(1),
+                        },
+                        {
+                          day: "Tuesday",
+                          price: useMondayForWeekdays
+                            ? Object.values(mondayPricing)[0] ||
+                              court.hourlyRate
+                            : court.hourlyRate,
+                          enabled: enabledDays.has(2),
+                        },
+                        {
+                          day: "Wednesday",
+                          price: useMondayForWeekdays
+                            ? Object.values(mondayPricing)[0] ||
+                              court.hourlyRate
+                            : court.hourlyRate,
+                          enabled: enabledDays.has(3),
+                        },
+                        {
+                          day: "Thursday",
+                          price: useMondayForWeekdays
+                            ? Object.values(mondayPricing)[0] ||
+                              court.hourlyRate
+                            : court.hourlyRate,
+                          enabled: enabledDays.has(4),
+                        },
+                        {
+                          day: "Friday",
+                          price: useMondayForWeekdays
+                            ? Object.values(mondayPricing)[0] ||
+                              court.hourlyRate
+                            : court.hourlyRate,
+                          enabled: enabledDays.has(5),
+                        },
+                        {
+                          day: "Saturday",
+                          price:
+                            Object.values(saturdayPricing)[0] ||
+                            court.hourlyRate,
+                          enabled: enabledDays.has(6),
+                        },
+                        {
+                          day: "Sunday",
+                          price: useSaturdayForSunday
+                            ? Object.values(saturdayPricing)[0] ||
+                              court.hourlyRate
+                            : court.hourlyRate,
+                          enabled: enabledDays.has(0),
+                        },
+                      ];
+                      setDayPricing(dayPricingData);
+                    } catch (error: any) {
+                      // Optionally show a toast or error
+                    }
                   }
-                  setCourtName(court.name);
-                  try {
-                    // Fetch pricing rules for this court
-                    const response = await fetch(
-                      `/api/pricing-rules?courtId=${court.id}`,
-                      {
-                        credentials: "include",
-                      }
-                    );
-                    if (!response.ok)
-                      throw new Error("Failed to fetch pricing rules");
-                    const pricingRules = await response.json();
-                    // Initialize pricing state
-                    const mondayPricing: Record<string, string> = {};
-                    const saturdayPricing: Record<string, string> = {};
-                    const enabledDays = new Set<number>();
-                    // Process pricing rules
-                    pricingRules.forEach((rule: any) => {
-                      const timeSlot = rule.timeSlot;
-                      const price = rule.price;
-                      const dayOfWeek = rule.dayOfWeek;
-                      if (dayOfWeek === 1) {
-                        mondayPricing[timeSlot] = price;
-                        enabledDays.add(1);
-                      } else if (dayOfWeek === 6) {
-                        saturdayPricing[timeSlot] = price;
-                        enabledDays.add(6);
-                      }
-                    });
-                    // Determine if Monday prices are used for Tue-Fri
-                    const useMondayForWeekdays = pricingRules.some(
-                      (rule: any) => rule.dayOfWeek >= 2 && rule.dayOfWeek <= 5
-                    );
-                    // Determine if Saturday prices are used for Sunday
-                    const useSaturdayForSunday = pricingRules.some(
-                      (rule: any) => rule.dayOfWeek === 0
-                    );
-                    setTimeSlotPricing({
-                      Monday: mondayPricing,
-                      Saturday: saturdayPricing,
-                    });
-                    setUseMondayPrices(useMondayForWeekdays);
-                    setUseSaturdayPrices(useSaturdayForSunday);
-                    // Set day pricing with actual prices from pricing rules
-                    const dayPricingData = [
-                      {
-                        day: "Monday",
-                        price:
-                          Object.values(mondayPricing)[0] || court.hourlyRate,
-                        enabled: enabledDays.has(1),
-                      },
-                      {
-                        day: "Tuesday",
-                        price: useMondayForWeekdays
-                          ? Object.values(mondayPricing)[0] || court.hourlyRate
-                          : court.hourlyRate,
-                        enabled: enabledDays.has(2),
-                      },
-                      {
-                        day: "Wednesday",
-                        price: useMondayForWeekdays
-                          ? Object.values(mondayPricing)[0] || court.hourlyRate
-                          : court.hourlyRate,
-                        enabled: enabledDays.has(3),
-                      },
-                      {
-                        day: "Thursday",
-                        price: useMondayForWeekdays
-                          ? Object.values(mondayPricing)[0] || court.hourlyRate
-                          : court.hourlyRate,
-                        enabled: enabledDays.has(4),
-                      },
-                      {
-                        day: "Friday",
-                        price: useMondayForWeekdays
-                          ? Object.values(mondayPricing)[0] || court.hourlyRate
-                          : court.hourlyRate,
-                        enabled: enabledDays.has(5),
-                      },
-                      {
-                        day: "Saturday",
-                        price:
-                          Object.values(saturdayPricing)[0] || court.hourlyRate,
-                        enabled: enabledDays.has(6),
-                      },
-                      {
-                        day: "Sunday",
-                        price: useSaturdayForSunday
-                          ? Object.values(saturdayPricing)[0] ||
-                            court.hourlyRate
-                          : court.hourlyRate,
-                        enabled: enabledDays.has(0),
-                      },
-                    ];
-                    setDayPricing(dayPricingData);
-                  } catch (error: any) {
-                    // Optionally show a toast or error
-                  }
-                }
-              }}
-            >
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder="Select a court" />
-              </SelectTrigger>
-              <SelectContent>
-                {courts.map((court) => (
-                  <SelectItem key={court.id} value={court.id.toString()}>
-                    {court.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a court" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courts.map((court) => (
+                    <SelectItem key={court.id} value={court.id.toString()}>
+                      {court.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Court Details */}
+          {/* Centered Court Details */}
           {selectedCourt && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {selectedCourt.name}
-                  </h3>
-                  <p className="text-gray-600 mt-1">
-                    Working Hours: {selectedCourt.openTime} -{" "}
-                    {selectedCourt.closeTime}
-                  </p>
+            <div className="flex flex-col items-center">
+              <div className="space-y-6 w-full max-w-3xl">
+                <div className="flex justify-between items-start w-full">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 text-center md:text-left">
+                      {selectedCourt.name}
+                    </h3>
+                    <p className="text-gray-600 mt-1 text-center md:text-left">
+                      Working Hours: {selectedCourt.openTime} -{" "}
+                      {selectedCourt.closeTime}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setIsViewCourtDialogOpen(true)}
+                    variant="outline"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit Court
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => setIsViewCourtDialogOpen(true)}
-                  variant="outline"
-                >
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Edit Court
-                </Button>
-              </div>
 
-              {/* Time Slots and Pricing Table */}
-              <div className="overflow-x-auto">
-                <div className="grid grid-cols-4 gap-8">
-                  {/* Define time slot groups */}
-                  {[
-                    {
-                      label: "Morning",
-                      times: [
-                        "06:00",
-                        "06:30",
-                        "07:00",
-                        "07:30",
-                        "08:00",
-                        "08:30",
-                        "09:00",
-                        "09:30",
-                        "10:00",
-                        "10:30",
-                        "11:00",
-                        "11:30",
-                      ],
-                    },
-                    {
-                      label: "Afternoon",
-                      times: [
-                        "12:00",
-                        "12:30",
-                        "13:00",
-                        "13:30",
-                        "14:00",
-                        "14:30",
-                        "15:00",
-                        "15:30",
-                        "16:00",
-                        "16:30",
-                      ],
-                    },
-                    {
-                      label: "Peak Hours",
-                      times: [
-                        "17:00",
-                        "17:30",
-                        "18:00",
-                        "18:30",
-                        "19:00",
-                        "19:30",
-                        "20:00",
-                        "20:30",
-                        "21:00",
-                        "21:30",
-                        "22:00",
-                        "22:30",
-                        "23:00",
-                        "23:30",
-                      ],
-                    },
-                  ].map((group) => (
-                    <div key={group.label}>
-                      <div className="font-semibold mb-2">{group.label}</div>
-                      {group.times.map((start) => {
-                        // Find the corresponding time slot (e.g. '06:00-06:30')
-                        const startHour = parseInt(start.split(":")[0], 10);
-                        const startMinute = parseInt(start.split(":")[1], 10);
-                        let endHour = startHour;
-                        let endMinute = startMinute + 30;
-                        if (endMinute >= 60) {
-                          endHour += 1;
-                          endMinute = 0;
-                        }
-                        const displayEndHour = endHour === 24 ? 0 : endHour;
-                        const end = `${displayEndHour
-                          .toString()
-                          .padStart(2, "0")}:${endMinute
-                          .toString()
-                          .padStart(2, "0")}`;
-                        const slotKey = `${start}-${end}`;
-                        // Use Monday as default for display, or fallback to any enabled day
-                        const day = dayPricing[0]?.enabled
-                          ? "Monday"
-                          : dayPricing.find((d) => d.enabled)?.day || "Monday";
-                        const price = timeSlotPricing[day]?.[slotKey] || "0.00";
-                        return (
-                          <div key={slotKey} className="flex items-center mb-2">
-                            <span className="w-24 text-sm">{slotKey}</span>
-                            <div className="relative w-24">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">
-                                €
-                              </span>
-                              <input
-                                type="number"
-                                value={price}
-                                readOnly
-                                className="pl-5 pr-2 py-1 w-full border rounded text-xs bg-gray-50 appearance-none focus:outline-none"
-                                style={{ MozAppearance: "textfield" }}
-                                min="0"
-                                step="0.01"
-                              />
-                            </div>
+                {/* Centered Time Slots and Pricing Table */}
+                <div className="flex justify-center">
+                  <div className="overflow-x-auto">
+                    <div className="grid grid-cols-4 gap-8">
+                      {/* Define time slot groups */}
+                      {[
+                        {
+                          label: "Morning",
+                          times: [
+                            "06:00",
+                            "06:30",
+                            "07:00",
+                            "07:30",
+                            "08:00",
+                            "08:30",
+                            "09:00",
+                            "09:30",
+                            "10:00",
+                            "10:30",
+                            "11:00",
+                            "11:30",
+                          ],
+                        },
+                        {
+                          label: "Afternoon",
+                          times: [
+                            "12:00",
+                            "12:30",
+                            "13:00",
+                            "13:30",
+                            "14:00",
+                            "14:30",
+                            "15:00",
+                            "15:30",
+                            "16:00",
+                            "16:30",
+                          ],
+                        },
+                        {
+                          label: "Peak Hours",
+                          times: [
+                            "17:00",
+                            "17:30",
+                            "18:00",
+                            "18:30",
+                            "19:00",
+                            "19:30",
+                            "20:00",
+                            "20:30",
+                            "21:00",
+                            "21:30",
+                            "22:00",
+                            "22:30",
+                            "23:00",
+                            "23:30",
+                          ],
+                        },
+                      ].map((group) => (
+                        <div key={group.label}>
+                          <div className="font-semibold mb-2">
+                            {group.label}
                           </div>
-                        );
-                      })}
+                          {group.times.map((start) => {
+                            // Find the corresponding time slot (e.g. '06:00-06:30')
+                            const startHour = parseInt(start.split(":")[0], 10);
+                            const startMinute = parseInt(
+                              start.split(":")[1],
+                              10
+                            );
+                            let endHour = startHour;
+                            let endMinute = startMinute + 30;
+                            if (endMinute >= 60) {
+                              endHour += 1;
+                              endMinute = 0;
+                            }
+                            const displayEndHour = endHour === 24 ? 0 : endHour;
+                            const end = `${displayEndHour
+                              .toString()
+                              .padStart(2, "0")}:${endMinute
+                              .toString()
+                              .padStart(2, "0")}`;
+                            const slotKey = `${start}-${end}`;
+                            // Use Monday as default for display, or fallback to any enabled day
+                            const day = dayPricing[0]?.enabled
+                              ? "Monday"
+                              : dayPricing.find((d) => d.enabled)?.day ||
+                                "Monday";
+                            const price =
+                              timeSlotPricing[day]?.[slotKey] || "0.00";
+                            return (
+                              <div
+                                key={slotKey}
+                                className="flex items-center mb-2"
+                              >
+                                <span className="w-24 text-sm">{slotKey}</span>
+                                <div className="relative w-24">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">
+                                    €
+                                  </span>
+                                  <input
+                                    type="number"
+                                    value={price}
+                                    readOnly
+                                    className="pl-5 pr-2 py-1 w-full border rounded text-xs bg-gray-50 appearance-none focus:outline-none"
+                                    style={{ MozAppearance: "textfield" }}
+                                    min="0"
+                                    step="0.01"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1697,11 +1719,76 @@ export function AdminScheduleManagement() {
                   try {
                     if (!selectedCourt) return;
 
-                    // Update court basic info
+                    // Prepare pricing rules (same as in handleAddCourt)
+                    const pricingRules = [];
+                    // Monday pricing
+                    if (dayPricing[0].enabled) {
+                      for (const [timeSlot, price] of Object.entries(
+                        timeSlotPricing.Monday
+                      )) {
+                        if (price) {
+                          pricingRules.push({
+                            dayOfWeek: 1, // Monday
+                            timeSlot,
+                            price,
+                          });
+                        }
+                      }
+                    }
+                    // Saturday pricing
+                    if (dayPricing[5].enabled) {
+                      for (const [timeSlot, price] of Object.entries(
+                        timeSlotPricing.Saturday
+                      )) {
+                        if (price) {
+                          pricingRules.push({
+                            dayOfWeek: 6, // Saturday
+                            timeSlot,
+                            price,
+                          });
+                        }
+                      }
+                    }
+                    // Inherit Monday prices for Tue-Fri
+                    if (useMondayPrices && dayPricing[0].enabled) {
+                      for (let day = 2; day <= 5; day++) {
+                        for (const [timeSlot, price] of Object.entries(
+                          timeSlotPricing.Monday
+                        )) {
+                          if (price) {
+                            pricingRules.push({
+                              dayOfWeek: day,
+                              timeSlot,
+                              price,
+                            });
+                          }
+                        }
+                      }
+                    }
+                    // Inherit Saturday prices for Sunday
+                    if (useSaturdayPrices && dayPricing[5].enabled) {
+                      for (const [timeSlot, price] of Object.entries(
+                        timeSlotPricing.Saturday
+                      )) {
+                        if (price) {
+                          pricingRules.push({
+                            dayOfWeek: 0, // Sunday
+                            timeSlot,
+                            price,
+                          });
+                        }
+                      }
+                    }
+
+                    // Build the update payload
                     const courtData: Partial<CourtFormData> = {
                       name: courtName,
                       description: `Open ${openTime} - ${closeTime}`,
+                      openTime,
+                      closeTime,
                       hourlyRate: dayPricing[0].price || "0",
+                      isActive: true,
+                      pricingRules, // <-- THIS IS THE KEY!
                     };
 
                     await apiRequest(
@@ -1709,84 +1796,6 @@ export function AdminScheduleManagement() {
                       `/api/courts/${selectedCourt.id}`,
                       courtData
                     );
-
-                    // Prepare pricing updates
-                    const pricingUpdates = [];
-
-                    // Process Monday pricing
-                    if (dayPricing[0].enabled) {
-                      for (const [timeSlot, price] of Object.entries(
-                        timeSlotPricing.Monday
-                      )) {
-                        if (price) {
-                          pricingUpdates.push({
-                            courtId: selectedCourt.id,
-                            timeSlot,
-                            price,
-                            dayOfWeek: 1, // Monday
-                          });
-                        }
-                      }
-                    }
-
-                    // Process Saturday pricing
-                    if (dayPricing[5].enabled) {
-                      for (const [timeSlot, price] of Object.entries(
-                        timeSlotPricing.Saturday
-                      )) {
-                        if (price) {
-                          pricingUpdates.push({
-                            courtId: selectedCourt.id,
-                            timeSlot,
-                            price,
-                            dayOfWeek: 6, // Saturday
-                          });
-                        }
-                      }
-                    }
-
-                    // If using Monday prices for Tue-Fri, create those rules
-                    if (useMondayPrices && dayPricing[0].enabled) {
-                      for (let day = 2; day <= 5; day++) {
-                        // Tue-Fri
-                        for (const [timeSlot, price] of Object.entries(
-                          timeSlotPricing.Monday
-                        )) {
-                          if (price) {
-                            pricingUpdates.push({
-                              courtId: selectedCourt.id,
-                              timeSlot,
-                              price,
-                              dayOfWeek: day,
-                            });
-                          }
-                        }
-                      }
-                    }
-
-                    // If using Saturday prices for Sunday, create those rules
-                    if (useSaturdayPrices && dayPricing[5].enabled) {
-                      for (const [timeSlot, price] of Object.entries(
-                        timeSlotPricing.Saturday
-                      )) {
-                        if (price) {
-                          pricingUpdates.push({
-                            courtId: selectedCourt.id,
-                            timeSlot,
-                            price,
-                            dayOfWeek: 0, // Sunday
-                          });
-                        }
-                      }
-                    }
-
-                    // Save all pricing rules
-                    if (pricingUpdates.length > 0) {
-                      await apiRequest("POST", "/api/pricing-rules/batch", {
-                        updates: pricingUpdates,
-                      });
-                    }
-
                     toast({
                       title: "Court Updated",
                       description:
