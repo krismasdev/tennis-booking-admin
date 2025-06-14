@@ -1,9 +1,9 @@
-import { 
-  users, 
-  courts, 
-  timeSlots, 
+import {
+  users,
+  courts,
+  timeSlots,
   bookings,
-  type User, 
+  type User,
   type InsertUser,
   type Court,
   type InsertCourt,
@@ -12,15 +12,15 @@ import {
   type Booking,
   type InsertBooking,
   type TimeSlotWithCourt,
-  type BookingWithDetails
+  type BookingWithDetails,
 } from "../shared/schema.js";
 import { db } from "./db.js";
-import { eq, and, desc, asc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import connectMySQL from "express-mysql-session";
 import { pool } from "./db.js";
 
-const PostgresSessionStore = connectPg(session);
+const MySQLSessionStore = connectMySQL(session);
 
 export interface IStorage {
   // User management
@@ -38,23 +38,36 @@ export interface IStorage {
   getCourt(id: number): Promise<Court | undefined>;
   getAllCourts(): Promise<Court[]>;
   createCourt(court: InsertCourt): Promise<Court>;
-  updateCourt(id: number, court: Partial<InsertCourt>): Promise<Court | undefined>;
+  updateCourt(
+    id: number,
+    court: Partial<InsertCourt>
+  ): Promise<Court | undefined>;
   deleteCourt(id: number): Promise<boolean>;
 
   // Time slot management
   getTimeSlot(id: number): Promise<TimeSlot | undefined>;
   getTimeSlotWithCourt(id: number): Promise<TimeSlotWithCourt | undefined>;
   getTimeSlotsByDate(date: string): Promise<TimeSlotWithCourt[]>;
-  getTimeSlotsByDateRange(startDate: string, endDate: string): Promise<TimeSlotWithCourt[]>;
+  getTimeSlotsByDateRange(
+    startDate: string,
+    endDate: string
+  ): Promise<TimeSlotWithCourt[]>;
   getAvailableTimeSlots(date: string): Promise<TimeSlotWithCourt[]>;
   createTimeSlot(timeSlot: InsertTimeSlot): Promise<TimeSlot>;
-  updateTimeSlot(id: number, timeSlot: Partial<InsertTimeSlot>): Promise<TimeSlot | undefined>;
+  updateTimeSlot(
+    id: number,
+    timeSlot: Partial<InsertTimeSlot>
+  ): Promise<TimeSlot | undefined>;
   deleteTimeSlot(id: number): Promise<boolean>;
 
   // Pricing management
   getPricingRules(courtId: number): Promise<any[]>;
   getAllPricingRules(): Promise<any[]>;
-  createOrUpdatePricingRule(courtId: number, timeSlot: string, price: string): Promise<any>;
+  createOrUpdatePricingRule(
+    courtId: number,
+    timeSlot: string,
+    price: string
+  ): Promise<any>;
 
   // Booking management
   getBooking(id: number): Promise<Booking | undefined>;
@@ -62,7 +75,10 @@ export interface IStorage {
   getUserBookings(userId: number): Promise<BookingWithDetails[]>;
   getAllBookings(): Promise<BookingWithDetails[]>;
   createBooking(booking: InsertBooking): Promise<Booking>;
-  updateBooking(id: number, booking: Partial<InsertBooking>): Promise<Booking | undefined>;
+  updateBooking(
+    id: number,
+    booking: Partial<InsertBooking>
+  ): Promise<Booking | undefined>;
   cancelBooking(id: number): Promise<boolean>;
 
   sessionStore: any;
@@ -72,10 +88,21 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
-    });
+    this.sessionStore = new MySQLSessionStore(
+      {
+        expiration: 86400000, // 24 hours
+        createDatabaseTable: true,
+        schema: {
+          tableName: "sessions",
+          columnNames: {
+            session_id: "session_id",
+            expires: "expires",
+            data: "data",
+          },
+        },
+      },
+      pool
+    );
   }
 
   // User methods
@@ -85,7 +112,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
     return user || undefined;
   }
 
@@ -95,25 +125,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
+    await db.insert(users).values(insertUser);
     const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
+      .select()
+      .from(users)
+      .where(eq(users.email, insertUser.email));
     return user;
   }
 
-  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, id))
-      .returning();
+  async updateUser(
+    id: number,
+    updateData: Partial<InsertUser>
+  ): Promise<User | undefined> {
+    await db.update(users).set(updateData).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
 
   async deleteUser(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
-    return (result.rowCount || 0) > 0;
+    return result.length > 0;
   }
 
   async blockUser(id: number): Promise<boolean> {
@@ -121,7 +152,7 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ isBlocked: true })
       .where(eq(users.id, id));
-    return (result.rowCount || 0) > 0;
+    return result.length > 0;
   }
 
   async unblockUser(id: number): Promise<boolean> {
@@ -129,7 +160,7 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ isBlocked: false })
       .where(eq(users.id, id));
-    return (result.rowCount || 0) > 0;
+    return result.length > 0;
   }
 
   async getAllUsers(): Promise<User[]> {
@@ -143,49 +174,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllCourts(): Promise<Court[]> {
-    return await db.select().from(courts).where(eq(courts.isActive, true)).orderBy(asc(courts.name));
+    return await db
+      .select()
+      .from(courts)
+      .where(eq(courts.isActive, true))
+      .orderBy(asc(courts.name));
   }
 
   async createCourt(insertCourt: InsertCourt): Promise<Court> {
+    await db.insert(courts).values(insertCourt);
     const [court] = await db
-      .insert(courts)
-      .values(insertCourt)
-      .returning();
+      .select()
+      .from(courts)
+      .orderBy(desc(courts.id))
+      .limit(1);
     return court;
   }
 
-  async updateCourt(id: number, updateData: Partial<InsertCourt>): Promise<Court | undefined> {
-    const [court] = await db
-      .update(courts)
-      .set(updateData)
-      .where(eq(courts.id, id))
-      .returning();
+  async updateCourt(
+    id: number,
+    updateData: Partial<InsertCourt>
+  ): Promise<Court | undefined> {
+    await db.update(courts).set(updateData).where(eq(courts.id, id));
+    const [court] = await db.select().from(courts).where(eq(courts.id, id));
     return court || undefined;
   }
 
   async deleteCourt(id: number): Promise<boolean> {
     const result = await db.delete(courts).where(eq(courts.id, id));
-    return (result.rowCount || 0) > 0;
+    return result.length > 0;
   }
 
   // Time slot methods
   async getTimeSlot(id: number): Promise<TimeSlot | undefined> {
-    const [timeSlot] = await db.select().from(timeSlots).where(eq(timeSlots.id, id));
+    const [timeSlot] = await db
+      .select()
+      .from(timeSlots)
+      .where(eq(timeSlots.id, id));
     return timeSlot || undefined;
   }
 
-  async getTimeSlotWithCourt(id: number): Promise<TimeSlotWithCourt | undefined> {
+  async getTimeSlotWithCourt(
+    id: number
+  ): Promise<TimeSlotWithCourt | undefined> {
     const [result] = await db
       .select()
       .from(timeSlots)
       .innerJoin(courts, eq(timeSlots.courtId, courts.id))
       .where(eq(timeSlots.id, id));
-    
+
     if (!result) return undefined;
-    
+
     return {
       ...result.time_slots,
-      court: result.courts
+      court: result.courts,
     };
   }
 
@@ -194,12 +236,12 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(timeSlots)
       .innerJoin(courts, eq(timeSlots.courtId, courts.id))
-      .where(eq(timeSlots.date, date))
+      .where(sql`${timeSlots.date} = ${date}`)
       .orderBy(asc(timeSlots.startTime), asc(courts.name));
 
-    return results.map(result => ({
+    return results.map((result) => ({
       ...result.time_slots,
-      court: result.courts
+      court: result.courts,
     }));
   }
 
@@ -208,48 +250,60 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(timeSlots)
       .innerJoin(courts, eq(timeSlots.courtId, courts.id))
-      .where(and(
-        eq(timeSlots.date, date),
-        eq(timeSlots.isAvailable, true),
-        eq(courts.isActive, true)
-      ))
+      .where(
+        and(
+          sql`${timeSlots.date} = ${date}`,
+          eq(timeSlots.isAvailable, true),
+          eq(courts.isActive, true)
+        )
+      )
       .orderBy(asc(timeSlots.startTime), asc(courts.name));
 
-    return results.map(result => ({
+    return results.map((result) => ({
       ...result.time_slots,
-      court: result.courts
+      court: result.courts,
     }));
   }
 
   async createTimeSlot(insertTimeSlot: InsertTimeSlot): Promise<TimeSlot> {
+    await db.insert(timeSlots).values(insertTimeSlot);
     const [timeSlot] = await db
-      .insert(timeSlots)
-      .values(insertTimeSlot)
-      .returning();
+      .select()
+      .from(timeSlots)
+      .orderBy(desc(timeSlots.id))
+      .limit(1);
     return timeSlot;
   }
 
-  async updateTimeSlot(id: number, updateData: Partial<InsertTimeSlot>): Promise<TimeSlot | undefined> {
+  async updateTimeSlot(
+    id: number,
+    updateData: Partial<InsertTimeSlot>
+  ): Promise<TimeSlot | undefined> {
+    await db.update(timeSlots).set(updateData).where(eq(timeSlots.id, id));
     const [timeSlot] = await db
-      .update(timeSlots)
-      .set(updateData)
-      .where(eq(timeSlots.id, id))
-      .returning();
+      .select()
+      .from(timeSlots)
+      .where(eq(timeSlots.id, id));
     return timeSlot || undefined;
   }
 
   async deleteTimeSlot(id: number): Promise<boolean> {
     const result = await db.delete(timeSlots).where(eq(timeSlots.id, id));
-    return (result.rowCount || 0) > 0;
+    return result.length > 0;
   }
 
   // Booking methods
   async getBooking(id: number): Promise<Booking | undefined> {
-    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id));
     return booking || undefined;
   }
 
-  async getBookingWithDetails(id: number): Promise<BookingWithDetails | undefined> {
+  async getBookingWithDetails(
+    id: number
+  ): Promise<BookingWithDetails | undefined> {
     const [result] = await db
       .select()
       .from(bookings)
@@ -265,8 +319,8 @@ export class DatabaseStorage implements IStorage {
       user: result.users,
       timeSlot: {
         ...result.time_slots,
-        court: result.courts
-      }
+        court: result.courts,
+      },
     };
   }
 
@@ -280,13 +334,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.userId, userId))
       .orderBy(desc(bookings.createdAt));
 
-    return results.map(result => ({
+    return results.map((result) => ({
       ...result.bookings,
       user: result.users,
       timeSlot: {
         ...result.time_slots,
-        court: result.courts
-      }
+        court: result.courts,
+      },
     }));
   }
 
@@ -299,37 +353,42 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(courts, eq(timeSlots.courtId, courts.id))
       .orderBy(desc(bookings.createdAt));
 
-    return results.map(result => ({
+    return results.map((result) => ({
       ...result.bookings,
       user: result.users,
       timeSlot: {
         ...result.time_slots,
-        court: result.courts
-      }
+        court: result.courts,
+      },
     }));
   }
 
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
+    await db.insert(bookings).values(insertBooking);
     const [booking] = await db
-      .insert(bookings)
-      .values(insertBooking)
-      .returning();
-    
+      .select()
+      .from(bookings)
+      .orderBy(desc(bookings.id))
+      .limit(1);
+
     // Mark time slot as unavailable
     await db
       .update(timeSlots)
       .set({ isAvailable: false })
       .where(eq(timeSlots.id, insertBooking.timeSlotId));
-    
+
     return booking;
   }
 
-  async updateBooking(id: number, updateData: Partial<InsertBooking>): Promise<Booking | undefined> {
+  async updateBooking(
+    id: number,
+    updateData: Partial<InsertBooking>
+  ): Promise<Booking | undefined> {
+    await db.update(bookings).set(updateData).where(eq(bookings.id, id));
     const [booking] = await db
-      .update(bookings)
-      .set(updateData)
-      .where(eq(bookings.id, id))
-      .returning();
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id));
     return booking || undefined;
   }
 
@@ -338,44 +397,46 @@ export class DatabaseStorage implements IStorage {
     if (!booking) return false;
 
     // Update booking status
-    const [updatedBooking] = await db
+    await db
       .update(bookings)
       .set({ status: "cancelled" })
-      .where(eq(bookings.id, id))
-      .returning();
+      .where(eq(bookings.id, id));
 
-    if (updatedBooking) {
-      // Make time slot available again
-      await db
-        .update(timeSlots)
-        .set({ isAvailable: true })
-        .where(eq(timeSlots.id, booking.timeSlotId));
-      return true;
-    }
-
-    return false;
+    // Make time slot available again
+    await db
+      .update(timeSlots)
+      .set({ isAvailable: true })
+      .where(eq(timeSlots.id, booking.timeSlotId));
+    return true;
   }
 
-  async getTimeSlotsByDateRange(startDate: string, endDate: string): Promise<TimeSlotWithCourt[]> {
+  async getTimeSlotsByDateRange(
+    startDate: string,
+    endDate: string
+  ): Promise<TimeSlotWithCourt[]> {
     const results = await db
       .select()
       .from(timeSlots)
       .leftJoin(bookings, eq(timeSlots.id, bookings.timeSlotId))
       .leftJoin(users, eq(bookings.userId, users.id))
       .innerJoin(courts, eq(timeSlots.courtId, courts.id))
-      .where(and(
-        gte(timeSlots.date, startDate),
-        lte(timeSlots.date, endDate)
-      ))
+      .where(
+        and(
+          sql`${timeSlots.date} >= ${startDate}`,
+          sql`${timeSlots.date} <= ${endDate}`
+        )
+      )
       .orderBy(asc(timeSlots.date), asc(timeSlots.startTime), asc(courts.name));
 
-    return results.map(result => ({
+    return results.map((result) => ({
       ...result.time_slots,
       court: result.courts,
-      booking: result.bookings ? {
-        ...result.bookings,
-        user: result.users!
-      } : undefined
+      booking: result.bookings
+        ? {
+            ...result.bookings,
+            user: result.users!,
+          }
+        : undefined,
     }));
   }
 
@@ -390,7 +451,11 @@ export class DatabaseStorage implements IStorage {
     return [];
   }
 
-  async createOrUpdatePricingRule(courtId: number, timeSlot: string, price: string): Promise<any> {
+  async createOrUpdatePricingRule(
+    courtId: number,
+    timeSlot: string,
+    price: string
+  ): Promise<any> {
     // For now, return a mock pricing rule
     // This would typically insert/update a pricing_rules table
     return {
@@ -398,7 +463,7 @@ export class DatabaseStorage implements IStorage {
       courtId,
       timeSlot,
       price,
-      isActive: true
+      isActive: true,
     };
   }
 }
