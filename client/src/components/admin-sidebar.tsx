@@ -111,6 +111,12 @@ export const AdminSidebar = ({
       active: activeTab === "calendar",
       onClick: () => onTabChange("calendar"),
     },
+    {
+      icon: <MapPin className="h-5 w-5" />,
+      label: "Courts",
+      active: activeTab === "schedules",
+      onClick: () => onTabChange("schedules"),
+    },
     // {
     //   icon: <MapPin className="h-5 w-5" />,
     //   label: "Courts",
@@ -134,12 +140,6 @@ export const AdminSidebar = ({
       label: "Pricing",
       active: activeTab === "pricing",
       onClick: () => onTabChange("pricing"),
-    },
-    {
-      icon: <MapPin className="h-5 w-5" />,
-      label: "Courts",
-      active: activeTab === "schedules",
-      onClick: () => onTabChange("schedules"),
     },
     {
       icon: <BarChart3 className="h-5 w-5" />,

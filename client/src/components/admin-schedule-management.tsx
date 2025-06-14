@@ -36,6 +36,18 @@ import { z } from "zod";
 import { Plus, Edit2, Trash2, Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
+// Add CSS to remove number input spinners
+const numberInputStyles = `
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+`;
+
 type TimeSlotFormData = z.infer<typeof insertTimeSlotSchema>;
 type CourtFormData = z.infer<typeof insertCourtSchema>;
 
@@ -542,6 +554,7 @@ export function AdminScheduleManagement() {
 
   return (
     <div className="space-y-6">
+      <style>{numberInputStyles}</style>
       {/* Courts Management */}
       <Card>
         <CardHeader>
@@ -720,12 +733,15 @@ export function AdminScheduleManagement() {
                                   </p>
                                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {pricingTimeSlots.map((timeSlot) => (
-                                      <div key={timeSlot} className="space-y-1">
-                                        <Label className="text-xs text-gray-600">
+                                      <div
+                                        key={timeSlot}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <Label className="text-xs text-gray-600 whitespace-nowrap">
                                           {timeSlot}
                                         </Label>
-                                        <div className="flex items-center space-x-1">
-                                          <span className="text-xs text-gray-500">
+                                        <div className="flex items-center">
+                                          <span className="text-xs text-gray-500 mr-1">
                                             €
                                           </span>
                                           <Input
@@ -744,7 +760,16 @@ export function AdminScheduleManagement() {
                                               )
                                             }
                                             placeholder="0.00"
-                                            className="text-xs h-8"
+                                            className={`text-xs h-8 w-20 ${
+                                              (isWeekday && useMondayPrices) ||
+                                              (isSunday && useSaturdayPrices)
+                                                ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                                : ""
+                                            }`}
+                                            disabled={
+                                              (isWeekday && useMondayPrices) ||
+                                              (isSunday && useSaturdayPrices)
+                                            }
                                           />
                                         </div>
                                       </div>
@@ -1208,12 +1233,15 @@ export function AdminScheduleManagement() {
                             </p>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                               {pricingTimeSlots.map((timeSlot) => (
-                                <div key={timeSlot} className="space-y-1">
-                                  <Label className="text-xs text-gray-600">
+                                <div
+                                  key={timeSlot}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Label className="text-xs text-gray-600 whitespace-nowrap">
                                     {timeSlot}
                                   </Label>
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-xs text-gray-500">
+                                  <div className="flex items-center">
+                                    <span className="text-xs text-gray-500 mr-1">
                                       €
                                     </span>
                                     <Input
@@ -1231,7 +1259,16 @@ export function AdminScheduleManagement() {
                                         )
                                       }
                                       placeholder="0.00"
-                                      className="text-xs h-8"
+                                      className={`text-xs h-8 w-20 ${
+                                        (isWeekday && useMondayPrices) ||
+                                        (isSunday && useSaturdayPrices)
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : ""
+                                      }`}
+                                      disabled={
+                                        (isWeekday && useMondayPrices) ||
+                                        (isSunday && useSaturdayPrices)
+                                      }
                                     />
                                   </div>
                                 </div>
