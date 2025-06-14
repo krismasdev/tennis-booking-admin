@@ -1008,9 +1008,120 @@ export function AdminScheduleManagement() {
             <Label htmlFor="court-select">Select Court</Label>
             <Select
               value={selectedCourt?.id?.toString() || ""}
-              onValueChange={(value: string) => {
+              onValueChange={async (value: string) => {
                 const court = courts.find((c) => c.id.toString() === value);
-                if (court) setSelectedCourt(court);
+                if (court) {
+                  setSelectedCourt(court);
+                  // Parse working hours
+                  const workingHours = court.description.match(
+                    /Open (\d{2}:\d{2}) - (\d{2}:\d{2})/
+                  );
+                  if (workingHours) {
+                    setOpenTime(workingHours[1]);
+                    setCloseTime(workingHours[2]);
+                  } else {
+                    setOpenTime(court.openTime);
+                    setCloseTime(court.closeTime);
+                  }
+                  setCourtName(court.name);
+                  try {
+                    // Fetch pricing rules for this court
+                    const response = await fetch(
+                      `/api/pricing-rules?courtId=${court.id}`,
+                      {
+                        credentials: "include",
+                      }
+                    );
+                    if (!response.ok)
+                      throw new Error("Failed to fetch pricing rules");
+                    const pricingRules = await response.json();
+                    // Initialize pricing state
+                    const mondayPricing: Record<string, string> = {};
+                    const saturdayPricing: Record<string, string> = {};
+                    const enabledDays = new Set<number>();
+                    // Process pricing rules
+                    pricingRules.forEach((rule: any) => {
+                      const timeSlot = rule.timeSlot;
+                      const price = rule.price;
+                      const dayOfWeek = rule.dayOfWeek;
+                      if (dayOfWeek === 1) {
+                        mondayPricing[timeSlot] = price;
+                        enabledDays.add(1);
+                      } else if (dayOfWeek === 6) {
+                        saturdayPricing[timeSlot] = price;
+                        enabledDays.add(6);
+                      }
+                    });
+                    // Determine if Monday prices are used for Tue-Fri
+                    const useMondayForWeekdays = pricingRules.some(
+                      (rule: any) => rule.dayOfWeek >= 2 && rule.dayOfWeek <= 5
+                    );
+                    // Determine if Saturday prices are used for Sunday
+                    const useSaturdayForSunday = pricingRules.some(
+                      (rule: any) => rule.dayOfWeek === 0
+                    );
+                    setTimeSlotPricing({
+                      Monday: mondayPricing,
+                      Saturday: saturdayPricing,
+                    });
+                    setUseMondayPrices(useMondayForWeekdays);
+                    setUseSaturdayPrices(useSaturdayForSunday);
+                    // Set day pricing with actual prices from pricing rules
+                    const dayPricingData = [
+                      {
+                        day: "Monday",
+                        price:
+                          Object.values(mondayPricing)[0] || court.hourlyRate,
+                        enabled: enabledDays.has(1),
+                      },
+                      {
+                        day: "Tuesday",
+                        price: useMondayForWeekdays
+                          ? Object.values(mondayPricing)[0] || court.hourlyRate
+                          : court.hourlyRate,
+                        enabled: enabledDays.has(2),
+                      },
+                      {
+                        day: "Wednesday",
+                        price: useMondayForWeekdays
+                          ? Object.values(mondayPricing)[0] || court.hourlyRate
+                          : court.hourlyRate,
+                        enabled: enabledDays.has(3),
+                      },
+                      {
+                        day: "Thursday",
+                        price: useMondayForWeekdays
+                          ? Object.values(mondayPricing)[0] || court.hourlyRate
+                          : court.hourlyRate,
+                        enabled: enabledDays.has(4),
+                      },
+                      {
+                        day: "Friday",
+                        price: useMondayForWeekdays
+                          ? Object.values(mondayPricing)[0] || court.hourlyRate
+                          : court.hourlyRate,
+                        enabled: enabledDays.has(5),
+                      },
+                      {
+                        day: "Saturday",
+                        price:
+                          Object.values(saturdayPricing)[0] || court.hourlyRate,
+                        enabled: enabledDays.has(6),
+                      },
+                      {
+                        day: "Sunday",
+                        price: useSaturdayForSunday
+                          ? Object.values(saturdayPricing)[0] ||
+                            court.hourlyRate
+                          : court.hourlyRate,
+                        enabled: enabledDays.has(0),
+                      },
+                    ];
+                    setDayPricing(dayPricingData);
+                  } catch (error: any) {
+                    // Optionally show a toast or error
+                  }
+                }
               }}
             >
               <SelectTrigger className="w-[300px]">
