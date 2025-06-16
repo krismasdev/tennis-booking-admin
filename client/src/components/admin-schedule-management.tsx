@@ -1571,6 +1571,34 @@ export function AdminScheduleManagement() {
     return { monFri, satSun };
   }
 
+  // Add mutation for updating a court
+  const updateCourtMutation = useMutation({
+    mutationFn: async (court: Court) => {
+      const response = await apiRequest("PUT", `/api/courts/${court.id}`, {
+        name: court.name,
+        openTime: court.openTime,
+        closeTime: court.closeTime,
+      });
+      if (!response.ok) throw new Error("Failed to update court");
+      return response.json();
+    },
+    onSuccess: () => {
+      setIsEditCourtDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
+      toast({
+        title: "Court updated",
+        description: "Court details have been updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Update the court sections rendering
   return (
     <div className="space-y-6">
@@ -2121,12 +2149,18 @@ export function AdminScheduleManagement() {
                 </Button>
                 <Button
                   variant="primary"
-                  onClick={async () => {
-                    // Add your update court mutation here
-                    setIsEditCourtDialogOpen(false);
+                  onClick={() => {
+                    if (editingCourt) {
+                      updateCourtMutation.mutate(editingCourt);
+                    }
                   }}
+                  disabled={updateCourtMutation.isPending}
                 >
-                  Save Changes
+                  {updateCourtMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Save Changes"
+                  )}
                 </Button>
               </div>
             </div>
