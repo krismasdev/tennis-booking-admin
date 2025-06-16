@@ -783,10 +783,8 @@ export function AdminScheduleManagement() {
 
             // Process pricing rules
             pricingRules.forEach((rule: any) => {
-              const [startTime, endTime] = rule.timeSlot.split("-");
               const priceRange = {
-                startTime,
-                endTime,
+                timeSlot: rule.timeSlot,
                 price: rule.price,
                 days: [rule.dayOfWeek],
               };
@@ -801,12 +799,12 @@ export function AdminScheduleManagement() {
               }
             });
 
-            // Sort ranges by start time
+            // Sort ranges by time slot
             newPricing.weekdayRanges.sort((a, b) =>
-              a.startTime.localeCompare(b.startTime)
+              a.timeSlot.localeCompare(b.timeSlot)
             );
             newPricing.weekendRanges.sort((a, b) =>
-              a.startTime.localeCompare(b.startTime)
+              a.timeSlot.localeCompare(b.timeSlot)
             );
 
             setCourtPricing((prev) => ({ ...prev, [court.id]: newPricing }));
@@ -865,13 +863,28 @@ export function AdminScheduleManagement() {
     }
   };
 
-  // Update getCourtSlotPrice to use courtPricing
+  // Update getCourtSlotPrice to correctly handle the pricing data
   const getCourtSlotPrice = (courtId: number, day: string, slot: string) => {
-    return (
-      editingPrices[courtId]?.[day]?.[slot] ||
-      courtPricing[courtId]?.[day]?.[slot] ||
-      "0.00"
-    );
+    const dayIndex = daysOfWeek.indexOf(day);
+    const pricing = courtPricing[courtId];
+
+    if (!pricing) return "0.00";
+
+    // Check weekday ranges
+    for (const range of pricing.weekdayRanges) {
+      if (range.days.includes(dayIndex) && range.timeSlot === slot) {
+        return range.price;
+      }
+    }
+
+    // Check weekend ranges
+    for (const range of pricing.weekendRanges) {
+      if (range.days.includes(dayIndex) && range.timeSlot === slot) {
+        return range.price;
+      }
+    }
+
+    return "0.00";
   };
 
   // Helper: set price for a court, day, slot
@@ -1440,6 +1453,53 @@ export function AdminScheduleManagement() {
     );
   };
 
+  // Update the calendar grid cell rendering
+  const renderCalendarCell = (court: Court, day: string, time: string) => {
+    const price = getCourtSlotPrice(court.id, day, time);
+    const isEditing =
+      editingCell &&
+      editingCell.courtId === court.id &&
+      editingCell.day === day &&
+      editingCell.slot === time;
+
+    return (
+      <div
+        key={`${court.id}-${day}-${time}`}
+        className={`min-h-[40px] rounded border text-xs p-2 flex flex-col items-center justify-center transition-all duration-200 ${
+          isEditing
+            ? "bg-orange-50 border-orange-200"
+            : "bg-green-50 border-green-200 text-green-800 hover:bg-green-100 cursor-pointer"
+        }`}
+        onClick={() => {
+          if (!isEditing) {
+            startEditCell(court.id, day, time, price);
+          }
+        }}
+      >
+        {isEditing ? (
+          <input
+            type="number"
+            value={editingValue}
+            autoFocus
+            min="0"
+            step="0.01"
+            className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
+            onChange={(e) => setEditingValue(e.target.value)}
+            onBlur={saveEditCell}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveEditCell();
+              if (e.key === "Escape") cancelEditCell();
+            }}
+          />
+        ) : (
+          <>
+            <span className="font-semibold truncate text-center">€{price}</span>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <style>{numberInputStyles}</style>
@@ -1777,59 +1837,9 @@ export function AdminScheduleManagement() {
                           <div className="text-sm text-gray-600 p-2 flex items-center justify-center bg-gray-50 rounded font-medium">
                             {time}
                           </div>
-                          {daysOfWeek.map((day) => {
-                            const price = getCourtSlotPrice(
-                              court.id,
-                              day,
-                              time
-                            );
-                            const isEditing =
-                              editingCell &&
-                              editingCell.courtId === court.id &&
-                              editingCell.day === day &&
-                              editingCell.slot === time;
-
-                            return (
-                              <div
-                                key={`${court.id}-${day}-${time}`}
-                                className={`min-h-[40px] rounded border text-xs p-2 flex flex-col items-center justify-center transition-all duration-200 ${
-                                  isEditing
-                                    ? "bg-orange-50 border-orange-200"
-                                    : "bg-green-50 border-green-200 text-green-800 hover:bg-green-100 cursor-pointer"
-                                }`}
-                                onClick={() => {
-                                  if (!isEditing) {
-                                    startEditCell(court.id, day, time, price);
-                                  }
-                                }}
-                              >
-                                {isEditing ? (
-                                  <input
-                                    type="number"
-                                    value={editingValue}
-                                    autoFocus
-                                    min="0"
-                                    step="0.01"
-                                    className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
-                                    onChange={(e) =>
-                                      setEditingValue(e.target.value)
-                                    }
-                                    onBlur={saveEditCell}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveEditCell();
-                                      if (e.key === "Escape") cancelEditCell();
-                                    }}
-                                  />
-                                ) : (
-                                  <>
-                                    <span className="font-semibold truncate text-center">
-                                      €{price}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            );
-                          })}
+                          {daysOfWeek.map((day) =>
+                            renderCalendarCell(court, day, time)
+                          )}
                         </div>
                       ))}
                     </div>
