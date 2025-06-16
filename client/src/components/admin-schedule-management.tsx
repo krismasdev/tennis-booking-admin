@@ -850,9 +850,12 @@ export function AdminScheduleManagement() {
       for (const slot of allTimeSlots) {
         const price = editingPrices[courtId]?.[day]?.[slot];
         if (price !== undefined) {
+          // Map UI index to backend dayOfWeek: Monday=1, ..., Saturday=6, Sunday=0
+          const uiIndex = daysOfWeek.indexOf(day); // 0=Monday, 6=Sunday
+          const dayOfWeek = (uiIndex + 1) % 7; // 1=Monday, ..., 6=Saturday, 0=Sunday
           updates.push({
             courtId,
-            dayOfWeek: daysOfWeek.indexOf(day),
+            dayOfWeek,
             timeSlot: slot,
             price,
           });
@@ -866,7 +869,8 @@ export function AdminScheduleManagement() {
         const newPricing = { ...prev };
         if (!newPricing[courtId]) newPricing[courtId] = {};
         for (const update of updates) {
-          const day = daysOfWeek[update.dayOfWeek];
+          // Map backend dayOfWeek back to UI day
+          const day = daysOfWeek[(update.dayOfWeek + 6) % 7];
           if (!newPricing[courtId][day]) newPricing[courtId][day] = {};
           newPricing[courtId][day][update.timeSlot] = update.price;
         }
