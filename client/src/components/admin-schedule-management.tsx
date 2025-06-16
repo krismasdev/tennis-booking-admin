@@ -830,6 +830,7 @@ export function AdminScheduleManagement() {
         nextMinute = 0;
       }
       if (nextHour > 23 || (nextHour === 23 && nextMinute > 30)) break;
+      // Always use leading zeros for hours and minutes
       const start = `${currentHour.toString().padStart(2, "0")}:${currentMinute
         .toString()
         .padStart(2, "0")}`;
@@ -856,7 +857,7 @@ export function AdminScheduleManagement() {
           updates.push({
             courtId,
             dayOfWeek,
-            timeSlot: slot,
+            timeSlot: slot.trim(), // Always trim slotKey
             price,
           });
         }
@@ -872,7 +873,7 @@ export function AdminScheduleManagement() {
           // Map backend dayOfWeek back to UI day
           const day = daysOfWeek[(update.dayOfWeek + 6) % 7];
           if (!newPricing[courtId][day]) newPricing[courtId][day] = {};
-          newPricing[courtId][day][update.timeSlot] = update.price;
+          newPricing[courtId][day][update.timeSlot.trim()] = update.price;
         }
         return newPricing;
       });
