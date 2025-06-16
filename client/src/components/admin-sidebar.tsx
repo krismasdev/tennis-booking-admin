@@ -187,32 +187,18 @@ export const AdminSidebar = ({
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">L</span>
-              </div>
-              <h1 className="text-xl font-bold text-white">Laterp</h1>
+          {/* Username Banner at Top (replaces header) */}
+          <div className="px-6 pt-6 pb-4">
+            <div className="w-full bg-blue-600 rounded-lg p-3 flex flex-col items-center justify-center">
+              <span className="text-white font-semibold text-lg">
+                {user?.username?.toUpperCase()}
+              </span>
+              <span className="text-blue-100 text-xs mt-1">
+                {user?.role
+                  ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                  : ""}
+              </span>
             </div>
-            <button
-              onClick={onClose}
-              className="lg:hidden text-gray-400 hover:text-white"
-            >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
           </div>
 
           {/* Navigation */}
@@ -224,18 +210,6 @@ export const AdminSidebar = ({
 
           {/* User Profile */}
           <div className="px-4 py-4 border-t border-gray-700">
-            <div className="flex flex-col space-y-3 mb-4">
-              <div className="w-full bg-blue-600 rounded-lg p-3 flex flex-col items-center justify-center">
-                <span className="text-white font-semibold text-lg">
-                  {user?.username?.toUpperCase()}
-                </span>
-                <span className="text-blue-100 text-xs mt-1">
-                  {user?.role
-                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
-                    : ""}
-                </span>
-              </div>
-            </div>
             <div className="space-y-2">
               <Link href="/">
                 <Button
