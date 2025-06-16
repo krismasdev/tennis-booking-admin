@@ -735,11 +735,54 @@ export function AdminScheduleManagement() {
     };
   }>({});
 
-  // Helper: get price for a court, day, slot
+  const [courtPricing, setCourtPricing] = useState<{
+    [courtId: number]: {
+      [day: string]: { [slot: string]: string };
+    };
+  }>({});
+
+  // Fetch pricing rules for a court when expanded
+  const handleExpandCourt = async (court: Court) => {
+    if (expandedCourtId === court.id) {
+      setExpandedCourtId(null);
+      return;
+    }
+    setExpandedCourtId(court.id);
+    // Only fetch if not already loaded
+    if (!courtPricing[court.id]) {
+      try {
+        const response = await fetch(`/api/pricing-rules?courtId=${court.id}`, {
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error("Failed to fetch pricing rules");
+        const pricingRules = await response.json();
+        // Parse rules into { [day]: { [slot]: price } }
+        const newPricing: { [day: string]: { [slot: string]: string } } = {};
+        pricingRules.forEach((rule: any) => {
+          const day = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ][rule.dayOfWeek];
+          if (!newPricing[day]) newPricing[day] = {};
+          newPricing[day][rule.timeSlot] = rule.price;
+        });
+        setCourtPricing((prev) => ({ ...prev, [court.id]: newPricing }));
+      } catch (e) {
+        // Optionally show error
+      }
+    }
+  };
+
+  // Update getCourtSlotPrice to use courtPricing
   const getCourtSlotPrice = (courtId: number, day: string, slot: string) => {
     return (
       editingPrices[courtId]?.[day]?.[slot] ||
-      timeSlotPricing[day]?.[slot] ||
+      courtPricing[courtId]?.[day]?.[slot] ||
       "0.00"
     );
   };
@@ -1085,11 +1128,7 @@ export function AdminScheduleManagement() {
               >
                 <div
                   className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-                  onClick={() =>
-                    setExpandedCourtId(
-                      expandedCourtId === court.id ? null : court.id
-                    )
-                  }
+                  onClick={() => handleExpandCourt(court)}
                 >
                   <div>
                     <div className="font-bold text-lg">{court.name}</div>
