@@ -33,7 +33,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTimeSlotSchema, insertCourtSchema } from "@shared/schema";
 import { z } from "zod";
-import { Plus, Edit2, Trash2, Calendar, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Calendar,
+  Loader2,
+  MapPin,
+  Euro,
+} from "lucide-react";
 import { format } from "date-fns";
 
 // Add CSS to remove number input spinners
@@ -918,957 +926,253 @@ export function AdminScheduleManagement() {
     }
   };
 
+  // Helper function to group prices into ranges
+  const getPriceRanges = (courtId: number) => {
+    const ranges: {
+      [key: string]: {
+        days: string[];
+        timeRanges: { start: string; end: string; price: string }[];
+      };
+    } = {};
+
+    // First, collect all prices for each day
+    daysOfWeek.forEach((day) => {
+      const dayPrices: { [key: string]: string } = {};
+      allTimeSlots.forEach((slot) => {
+        const price = getCourtSlotPrice(courtId, day, slot);
+        if (price && price !== "0.00") {
+          dayPrices[slot] = price;
+        }
+      });
+
+      // Group consecutive slots with same price
+      let currentPrice = "";
+      let startSlot = "";
+      let endSlot = "";
+
+      Object.entries(dayPrices).forEach(([slot, price], index, array) => {
+        if (currentPrice === "") {
+          currentPrice = price;
+          startSlot = slot.split("-")[0];
+        }
+
+        const isLast = index === array.length - 1;
+        const nextSlot = array[index + 1];
+        const shouldBreak = isLast || (nextSlot && nextSlot[1] !== price);
+
+        if (shouldBreak) {
+          endSlot = slot.split("-")[1];
+          const rangeKey = `${startSlot}-${endSlot}-${price}`;
+
+          if (!ranges[rangeKey]) {
+            ranges[rangeKey] = {
+              days: [],
+              timeRanges: [{ start: startSlot, end: endSlot, price }],
+            };
+          }
+          ranges[rangeKey].days.push(day);
+          currentPrice = "";
+        }
+      });
+    });
+
+    // Format the ranges for display
+    return Object.entries(ranges).map(([key, data]) => {
+      const days = data.days;
+      let daysText = "";
+
+      // Group consecutive days
+      if (
+        days.includes("Monday") &&
+        days.includes("Tuesday") &&
+        days.includes("Wednesday") &&
+        days.includes("Thursday") &&
+        days.includes("Friday")
+      ) {
+        daysText = "Mon-Fri";
+      } else if (days.includes("Saturday") && days.includes("Sunday")) {
+        daysText = "Sat-Sun";
+      } else {
+        daysText = days.join(", ");
+      }
+
+      return {
+        days: daysText,
+        timeRanges: data.timeRanges.map((range) => ({
+          time: `${range.start}-${range.end}`,
+          price: range.price,
+        })),
+      };
+    });
+  };
+
   return (
     <div className="space-y-6">
       <style>{numberInputStyles}</style>
-      {/* Courts Management */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Courts</CardTitle>
-            <Dialog
-              open={isAddCourtDialogOpen}
-              onOpenChange={setIsAddCourtDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Court
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Court</DialogTitle>
-                </DialogHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Courts Calendar - Weekly View
+            </CardTitle>
+          </div>
+        </CardHeader>
 
-                <div className="space-y-6">
-                  {/* Court Name */}
-                  <div>
-                    <Label htmlFor="court-name">Court Name</Label>
-                    <Input
-                      id="court-name"
-                      value={courtName}
-                      onChange={(e) => setCourtName(e.target.value)}
-                      placeholder="Enter court name"
-                    />
+        <CardContent>
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 mb-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-50 border border-green-200 rounded"></div>
+              <span>Available</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-50 border border-yellow-200 rounded"></div>
+              <span>Pending</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-50 border border-red-200 rounded"></div>
+              <span>Booked</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
+              <span>Unavailable</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Euro className="w-4 h-4 text-blue-600" />
+              <span>Click slots to edit pricing</span>
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="overflow-x-auto">
+            <div className="min-w-[1200px]">
+              {/* Header with days */}
+              <div className="grid grid-cols-8 gap-1 mb-4">
+                <div className="font-medium text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
+                  <Clock className="h-4 w-4 mx-auto" />
+                </div>
+                {daysOfWeek.map((day) => (
+                  <div
+                    key={day}
+                    className="font-medium text-sm text-center p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="font-semibold">{day}</div>
                   </div>
+                ))}
+              </div>
 
-                  {/* Open and Close Time */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="open-time">Open Time</Label>
-                      <Select value={openTime} onValueChange={setOpenTime}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select open time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeOptions.map((time) => (
-                            <SelectItem key={`open-${time}`} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="close-time">Close Time</Label>
-                      <Select value={closeTime} onValueChange={setCloseTime}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select close time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {closingTimeOptions.map((time) => (
-                            <SelectItem key={`close-${time}`} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Time Slots Preview */}
-                  {generatedTimeSlots.length > 0 && (
-                    <div>
-                      <Label>
-                        Generated Time Slots ({openTime} - {closeTime})
-                      </Label>
-                      <div className="mt-2 p-4 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
-                        <div className="grid grid-cols-4 gap-2 text-sm">
-                          {generatedTimeSlots.map(
-                            (
-                              slot: { startTime: string; endTime: string },
-                              index: number
-                            ) => (
-                              <div
-                                key={index}
-                                className="bg-white p-2 rounded border text-center"
-                              >
-                                {slot.startTime} - {slot.endTime}
-                              </div>
-                            )
-                          )}
+              {/* Court sections */}
+              {courts
+                .filter((court) => court.isActive)
+                .map((court) => (
+                  <div key={court.id} className="mb-8">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg mb-3 border border-blue-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-blue-600" />
+                            {court.name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {court.description}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Base Rate</p>
+                          <p className="font-bold text-blue-600">
+                            €{court.hourlyRate}/hour
+                          </p>
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Weekly Pricing */}
-                  <div>
-                    <Label>Weekly Pricing</Label>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Set individual prices for each time slot on Monday and
-                      Saturday. Other days will automatically follow the pricing
-                      rules.
-                    </p>
-
-                    {/* Pricing Control Options */}
-                    <div className="flex justify-center space-x-8 mb-6">
-                      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                        <Checkbox
-                          checked={useMondayPrices}
-                          onCheckedChange={(checked) =>
-                            handleMondayPricesToggle(checked as boolean)
-                          }
-                          className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                        />
-                        <span className="text-lg font-medium text-gray-700">
-                          Apply Monday prices to Tue-Fri
-                        </span>
-                      </div>
-
-                      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                        <Checkbox
-                          checked={useSaturdayPrices}
-                          onCheckedChange={(checked) =>
-                            handleSaturdayPricesToggle(checked as boolean)
-                          }
-                          className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                        />
-                        <span className="text-lg font-medium text-gray-700">
-                          Apply Saturday prices to Sunday
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {dayPricing.map((day, index) => {
-                        const isMonday = index === 0;
-                        const isSaturday = index === 5;
-                        const isWeekday = index >= 1 && index <= 4; // Tue-Fri
-                        const isSunday = index === 6;
-                        const isBlurred = isWeekday || isSunday;
-                        const canEditManually =
-                          (isWeekday && !useMondayPrices) ||
-                          (isSunday && !useSaturdayPrices);
-
-                        return (
-                          <div key={day.day}>
-                            <div
-                              className={`border rounded-lg p-4 ${
-                                isBlurred && !canEditManually
-                                  ? "opacity-50 blur-[1px]"
-                                  : ""
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-20 text-lg font-bold text-gray-900">
-                                    {day.day}
-                                  </div>
-                                </div>
-
-                                {((isWeekday && useMondayPrices) ||
-                                  (isSunday && useSaturdayPrices)) && (
-                                  <div className="text-sm text-blue-600 font-medium">
-                                    Auto-applied from{" "}
-                                    {isWeekday ? "Monday" : "Saturday"}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Time Slot Pricing Grid - Show for all days */}
-                              {!(
-                                (isWeekday && useMondayPrices) ||
-                                (isSunday && useSaturdayPrices)
-                              ) && (
-                                <div className="mt-4">
-                                  <p className="text-sm font-medium text-gray-700 mb-3">
-                                    Set prices for each time slot:
-                                  </p>
-                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    {pricingTimeSlots.map((timeSlot) => (
-                                      <div
-                                        key={timeSlot}
-                                        className="flex items-center gap-2"
-                                      >
-                                        <Label className="text-xs text-gray-600 whitespace-nowrap">
-                                          {timeSlot}
-                                        </Label>
-                                        <div className="flex items-center">
-                                          <span className="text-xs text-gray-500 mr-1">
-                                            €
-                                          </span>
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            value={
-                                              timeSlotPricing[day.day]?.[
-                                                timeSlot
-                                              ] || ""
-                                            }
-                                            onChange={(e) =>
-                                              handleTimeSlotPriceChange(
-                                                day.day,
-                                                timeSlot,
-                                                e.target.value
-                                              )
-                                            }
-                                            placeholder="0.00"
-                                            className={`text-xs h-8 w-20 ${
-                                              (isWeekday && useMondayPrices) ||
-                                              (isSunday && useSaturdayPrices)
-                                                ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                                : ""
-                                            }`}
-                                            disabled={
-                                              (isWeekday && useMondayPrices) ||
-                                              (isSunday && useSaturdayPrices)
-                                            }
-                                          />
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Show auto-applied message for days that inherit pricing */}
-                              {((isWeekday && useMondayPrices) ||
-                                (isSunday && useSaturdayPrices)) && (
-                                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                                  <p className="text-sm text-blue-700">
-                                    Pricing automatically applied from{" "}
-                                    {isWeekday ? "Monday" : "Saturday"}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
+                    {/* Time slots for this court */}
+                    <div className="space-y-1">
+                      {allTimeSlots.map((time) => (
+                        <div
+                          key={`${court.id}-${time}`}
+                          className="grid grid-cols-8 gap-1"
+                        >
+                          <div className="text-sm text-gray-600 p-2 flex items-center justify-center bg-gray-50 rounded font-medium">
+                            {time}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex space-x-2 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsAddCourtDialogOpen(false);
-                        handleResetCourtForm();
-                      }}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleAddCourt}
-                      disabled={addCourtMutation.isPending}
-                      className="flex-1"
-                    >
-                      {addCourtMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Add Court"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Render all courts as expandable panels */}
-          <div className="space-y-6">
-            {courts.map((court) => (
-              <div
-                key={court.id}
-                className="border rounded-lg bg-white shadow-sm"
-              >
-                <div
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-                  onClick={() => handleExpandCourt(court)}
-                >
-                  <div>
-                    <div className="font-bold text-lg">{court.name}</div>
-                    <div className="text-gray-600 text-sm">
-                      Working Hours: {court.openTime} - {court.closeTime}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Price Range: €{court.hourlyRate}
-                    </div>
-                  </div>
-                  <button className="text-blue-600 font-semibold text-sm">
-                    {expandedCourtId === court.id ? "Collapse" : "Expand"}
-                  </button>
-                </div>
-                {expandedCourtId === court.id && (
-                  <div className="p-4 border-t bg-gray-50">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full border text-center">
-                        <thead>
-                          <tr>
-                            <th className="border px-2 py-1 bg-gray-100">
-                              Time Slot
-                            </th>
-                            {daysOfWeek.map((day) => (
-                              <th
-                                key={day}
-                                className="border px-2 py-1 bg-gray-100"
-                              >
-                                {day}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allTimeSlots.map((slotKey) => {
+                          {daysOfWeek.map((day) => {
+                            const price = getCourtSlotPrice(
+                              court.id,
+                              day,
+                              time
+                            );
                             const isEditing =
                               editingCell &&
                               editingCell.courtId === court.id &&
-                              editingCell.day ===
-                                daysOfWeek[slotKey.split(":")[0]] &&
-                              editingCell.slot === slotKey;
-                            const value = getCourtSlotPrice(
-                              court.id,
-                              daysOfWeek[slotKey.split(":")[0]],
-                              slotKey
-                            );
+                              editingCell.day === day &&
+                              editingCell.slot === time;
+
                             return (
-                              <tr key={slotKey}>
-                                <td className="border px-2 py-1 font-mono text-xs">
-                                  {slotKey}
-                                </td>
-                                {daysOfWeek.map((day) => {
-                                  const isEditingCell =
-                                    editingCell &&
-                                    editingCell.courtId === court.id &&
-                                    editingCell.day === day &&
-                                    editingCell.slot === slotKey;
-                                  return (
-                                    <td key={day} className="border px-2 py-1">
-                                      {isEditingCell ? (
-                                        <input
-                                          type="number"
-                                          value={editingValue}
-                                          autoFocus
-                                          min="0"
-                                          step="0.01"
-                                          className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
-                                          onChange={(e) =>
-                                            setEditingValue(e.target.value)
-                                          }
-                                          onBlur={saveEditCell}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter")
-                                              saveEditCell();
-                                            if (e.key === "Escape")
-                                              cancelEditCell();
-                                          }}
-                                        />
-                                      ) : (
-                                        <span
-                                          className="inline-flex items-center cursor-pointer hover:bg-blue-50 rounded px-1"
-                                          onClick={() =>
-                                            startEditCell(
-                                              court.id,
-                                              day,
-                                              slotKey,
-                                              value
-                                            )
-                                          }
-                                          tabIndex={0}
-                                          role="button"
-                                          title="Click to edit price"
-                                        >
-                                          <span className="text-gray-500 text-xs mr-1">
-                                            €
-                                          </span>
-                                          <span className="text-xs font-medium">
-                                            {value}
-                                          </span>
-                                        </span>
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
+                              <div
+                                key={`${court.id}-${day}-${time}`}
+                                className={`min-h-[40px] rounded border text-xs p-2 flex flex-col items-center justify-center transition-all duration-200 ${
+                                  isEditing
+                                    ? "bg-orange-50 border-orange-200"
+                                    : "bg-green-50 border-green-200 text-green-800 hover:bg-green-100 cursor-pointer"
+                                }`}
+                                onClick={() => {
+                                  if (!isEditing) {
+                                    startEditCell(court.id, day, time, price);
+                                  }
+                                }}
+                              >
+                                {isEditing ? (
+                                  <input
+                                    type="number"
+                                    value={editingValue}
+                                    autoFocus
+                                    min="0"
+                                    step="0.01"
+                                    className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
+                                    onChange={(e) =>
+                                      setEditingValue(e.target.value)
+                                    }
+                                    onBlur={saveEditCell}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveEditCell();
+                                      if (e.key === "Escape") cancelEditCell();
+                                    }}
+                                  />
+                                ) : (
+                                  <>
+                                    <span className="font-semibold truncate text-center">
+                                      €{price}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
-                    {Object.keys(editingPrices[court.id] || {}).some(
-                      (day) =>
-                        Object.keys(editingPrices[court.id][day] || {}).length >
-                        0
-                    ) && (
-                      <div className="mt-4 flex justify-end">
-                        <Button
-                          onClick={() => handleSaveCourtPrices(court.id)}
-                          variant="primary"
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Schedule Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Schedule Management</CardTitle>
-            <Dialog
-              open={isAddSlotDialogOpen}
-              onOpenChange={setIsAddSlotDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Time Slot
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Time Slot</DialogTitle>
-                </DialogHeader>
-                <form
-                  onSubmit={addSlotForm.handleSubmit(handleAddSlot)}
-                  className="space-y-4"
-                >
-                  <div>
-                    <Label htmlFor="slot-date">Date</Label>
-                    <Input
-                      id="slot-date"
-                      type="date"
-                      {...addSlotForm.register("date")}
-                      min={format(new Date(), "yyyy-MM-dd")}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="slot-start">Start Time</Label>
-                      <Input
-                        id="slot-start"
-                        type="time"
-                        {...addSlotForm.register("startTime")}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="slot-end">End Time</Label>
-                      <Input
-                        id="slot-end"
-                        type="time"
-                        {...addSlotForm.register("endTime")}
-                      />
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div>
-                    <Label htmlFor="slot-court">Court</Label>
-                    <Select
-                      onValueChange={(value) =>
-                        addSlotForm.setValue("courtId", parseInt(value))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select court" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {courts.map((court) => (
-                          <SelectItem
-                            key={court.id}
-                            value={court.id.toString()}
-                          >
-                            {court.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="slot-price">Price (€)</Label>
-                    <Input
-                      id="slot-price"
-                      type="number"
-                      step="0.01"
-                      {...addSlotForm.register("price")}
-                      placeholder="Enter price in euros"
-                    />
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAddSlotDialogOpen(false)}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={addSlotMutation.isPending}
-                      className="flex-1"
-                    >
-                      {addSlotMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Add Time Slot"
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Date Filter */}
-          <div className="mb-6">
-            <Label htmlFor="filter-date">Filter by Date</Label>
-            <Input
-              id="filter-date"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="max-w-xs"
-            />
-          </div>
-
-          {/* Time Slots Table */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Court</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {timeSlotsData.map((slot: any) => (
-                  <TableRow key={slot.id}>
-                    <TableCell>
-                      {format(new Date(slot.date), "MMM dd, yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      {slot.startTime} - {slot.endTime}
-                    </TableCell>
-                    <TableCell>{slot.court.name}</TableCell>
-                    <TableCell>€{slot.price}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          slot.isAvailable
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {slot.isAvailable ? "Available" : "Booked"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteSlot(slot.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* View Court Dialog */}
-      <Dialog
-        open={isViewCourtDialogOpen}
-        onOpenChange={setIsViewCourtDialogOpen}
-      >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Court Details - {selectedCourt?.name}</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {/* Court Name */}
-            <div>
-              <Label htmlFor="view-court-name">Court Name</Label>
-              <Input
-                id="view-court-name"
-                value={courtName}
-                onChange={(e) => setCourtName(e.target.value)}
-                placeholder="Enter court name"
-              />
-            </div>
-
-            {/* Open and Close Time */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="view-open-time">Open Time</Label>
-                <Select value={openTime} onValueChange={setOpenTime}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select open time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timeOptions.map((time) => (
-                      <SelectItem key={`view-open-${time}`} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="view-close-time">Close Time</Label>
-                <Select value={closeTime} onValueChange={setCloseTime}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select close time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {closingTimeOptions.map((time) => (
-                      <SelectItem key={`view-close-${time}`} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Time Slots Preview */}
-            {generatedTimeSlots.length > 0 && (
-              <div>
-                <Label>
-                  Generated Time Slots ({openTime} - {closeTime})
-                </Label>
-                <div className="mt-2 p-4 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
-                  <div className="grid grid-cols-4 gap-2 text-sm">
-                    {generatedTimeSlots.map(
-                      (
-                        slot: { startTime: string; endTime: string },
-                        index: number
-                      ) => (
-                        <div
-                          key={index}
-                          className="bg-white p-2 rounded border text-center"
-                        >
-                          {slot.startTime} - {slot.endTime}
-                        </div>
-                      )
-                    )}
-                  </div>
+              {/* Empty state */}
+              {courts.filter((court) => court.isActive).length === 0 && (
+                <div className="text-center py-12">
+                  <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No Active Courts
+                  </h3>
+                  <p className="text-gray-600">
+                    Add courts in the Courts management section to see them
+                    here.
+                  </p>
                 </div>
-              </div>
-            )}
-
-            {/* Weekly Pricing */}
-            <div>
-              <Label>Weekly Pricing</Label>
-              <p className="text-sm text-gray-600 mb-4">
-                Set individual prices for each time slot on Monday and Saturday.
-                Other days will automatically follow the pricing rules.
-              </p>
-
-              {/* Pricing Control Options */}
-              <div className="flex justify-center space-x-8 mb-6">
-                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <Checkbox
-                    checked={useMondayPrices}
-                    onCheckedChange={(checked) =>
-                      handleMondayPricesToggle(checked as boolean)
-                    }
-                    className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                  />
-                  <span className="text-lg font-medium text-gray-700">
-                    Apply Monday prices to Tue-Fri
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <Checkbox
-                    checked={useSaturdayPrices}
-                    onCheckedChange={(checked) =>
-                      handleSaturdayPricesToggle(checked as boolean)
-                    }
-                    className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                  />
-                  <span className="text-lg font-medium text-gray-700">
-                    Apply Saturday prices to Sunday
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {dayPricing.map((day, index) => {
-                  const isMonday = index === 0;
-                  const isSaturday = index === 5;
-                  const isWeekday = index >= 1 && index <= 4; // Tue-Fri
-                  const isSunday = index === 6;
-                  const isBlurred = isWeekday || isSunday;
-                  const canEditManually =
-                    (isWeekday && !useMondayPrices) ||
-                    (isSunday && !useSaturdayPrices);
-
-                  return (
-                    <div key={day.day}>
-                      <div
-                        className={`border rounded-lg p-4 ${
-                          isBlurred && !canEditManually
-                            ? "opacity-50 blur-[1px]"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-20 text-lg font-bold text-gray-900">
-                              {day.day}
-                            </div>
-                          </div>
-
-                          {((isWeekday && useMondayPrices) ||
-                            (isSunday && useSaturdayPrices)) && (
-                            <div className="text-sm text-blue-600 font-medium">
-                              Auto-applied from{" "}
-                              {isWeekday ? "Monday" : "Saturday"}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Time Slot Pricing Grid - Show for all days */}
-                        {!(
-                          (isWeekday && useMondayPrices) ||
-                          (isSunday && useSaturdayPrices)
-                        ) && (
-                          <div className="mt-4">
-                            <p className="text-sm font-medium text-gray-700 mb-3">
-                              Set prices for each time slot:
-                            </p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                              {pricingTimeSlots.map((timeSlot) => (
-                                <div
-                                  key={timeSlot}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Label className="text-xs text-gray-600 whitespace-nowrap">
-                                    {timeSlot}
-                                  </Label>
-                                  <div className="flex items-center">
-                                    <span className="text-xs text-gray-500 mr-1">
-                                      €
-                                    </span>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={
-                                        timeSlotPricing[day.day]?.[timeSlot] ||
-                                        ""
-                                      }
-                                      onChange={(e) =>
-                                        handleTimeSlotPriceChange(
-                                          day.day,
-                                          timeSlot,
-                                          e.target.value
-                                        )
-                                      }
-                                      placeholder="0.00"
-                                      className={`text-xs h-8 w-20 ${
-                                        (isWeekday && useMondayPrices) ||
-                                        (isSunday && useSaturdayPrices)
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : ""
-                                      }`}
-                                      disabled={
-                                        (isWeekday && useMondayPrices) ||
-                                        (isSunday && useSaturdayPrices)
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Show auto-applied message for days that inherit pricing */}
-                        {((isWeekday && useMondayPrices) ||
-                          (isSunday && useSaturdayPrices)) && (
-                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                            <p className="text-sm text-blue-700">
-                              Pricing automatically applied from{" "}
-                              {isWeekday ? "Monday" : "Saturday"}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsViewCourtDialogOpen(false);
-                  handleResetCourtForm();
-                }}
-                className="flex-1"
-              >
-                Close
-              </Button>
-              <Button
-                type="button"
-                onClick={async () => {
-                  try {
-                    if (!selectedCourt) return;
-
-                    // Prepare pricing rules (same as in handleAddCourt)
-                    const pricingRules = [];
-                    // Monday pricing
-                    if (dayPricing[0].enabled) {
-                      for (const [timeSlot, price] of Object.entries(
-                        timeSlotPricing.Monday
-                      )) {
-                        if (price) {
-                          pricingRules.push({
-                            dayOfWeek: 1, // Monday
-                            timeSlot,
-                            price,
-                          });
-                        }
-                      }
-                    }
-                    // Saturday pricing
-                    if (dayPricing[5].enabled) {
-                      for (const [timeSlot, price] of Object.entries(
-                        timeSlotPricing.Saturday
-                      )) {
-                        if (price) {
-                          pricingRules.push({
-                            dayOfWeek: 6, // Saturday
-                            timeSlot,
-                            price,
-                          });
-                        }
-                      }
-                    }
-                    // Inherit Monday prices for Tue-Fri
-                    if (useMondayPrices && dayPricing[0].enabled) {
-                      for (let day = 2; day <= 5; day++) {
-                        for (const [timeSlot, price] of Object.entries(
-                          timeSlotPricing.Monday
-                        )) {
-                          if (price) {
-                            pricingRules.push({
-                              dayOfWeek: day,
-                              timeSlot,
-                              price,
-                            });
-                          }
-                        }
-                      }
-                    }
-                    // Inherit Saturday prices for Sunday
-                    if (useSaturdayPrices && dayPricing[5].enabled) {
-                      for (const [timeSlot, price] of Object.entries(
-                        timeSlotPricing.Saturday
-                      )) {
-                        if (price) {
-                          pricingRules.push({
-                            dayOfWeek: 0, // Sunday
-                            timeSlot,
-                            price,
-                          });
-                        }
-                      }
-                    }
-
-                    // Build the update payload
-                    const courtData: Partial<CourtFormData> = {
-                      name: courtName,
-                      description: `Open ${openTime} - ${closeTime}`,
-                      openTime,
-                      closeTime,
-                      hourlyRate: dayPricing[0].price || "0",
-                      isActive: true,
-                      pricingRules, // <-- THIS IS THE KEY!
-                    };
-
-                    await apiRequest(
-                      "PUT",
-                      `/api/courts/${selectedCourt.id}`,
-                      courtData
-                    );
-                    toast({
-                      title: "Court Updated",
-                      description:
-                        "Court details and pricing rules have been updated successfully.",
-                    });
-                    setIsViewCourtDialogOpen(false);
-                    handleResetCourtForm();
-                    queryClient.invalidateQueries({
-                      queryKey: ["/api/courts"],
-                    });
-                    queryClient.invalidateQueries({
-                      queryKey: ["/api/pricing-rules"],
-                    });
-                  } catch (error: any) {
-                    toast({
-                      title: "Error",
-                      description: error.message,
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                className="flex-1"
-              >
-                Update Court
-              </Button>
+              )}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
     </div>
   );
 }
