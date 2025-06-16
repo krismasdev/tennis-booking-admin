@@ -42,6 +42,7 @@ import {
   MapPin,
   Euro,
   Clock,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -74,6 +75,18 @@ interface DayPricing {
   day: string;
   price: string;
   enabled: boolean;
+}
+
+interface PriceRange {
+  startTime: string;
+  endTime: string;
+  price: string;
+  days: string[];
+}
+
+interface CourtPricing {
+  weekdayRanges: PriceRange[];
+  weekendRanges: PriceRange[];
 }
 
 export function AdminScheduleManagement() {
@@ -739,15 +752,11 @@ export function AdminScheduleManagement() {
 
   const [expandedCourtId, setExpandedCourtId] = useState<number | null>(null);
   const [editingPrices, setEditingPrices] = useState<{
-    [courtId: number]: {
-      [day: string]: { [slot: string]: string };
-    };
+    [courtId: number]: CourtPricing;
   }>({});
 
   const [courtPricing, setCourtPricing] = useState<{
-    [courtId: number]: {
-      [day: string]: { [slot: string]: string };
-    };
+    [courtId: number]: CourtPricing;
   }>({});
 
   // After courts are loaded, fetch pricing for all courts
@@ -766,7 +775,10 @@ export function AdminScheduleManagement() {
             if (!response.ok) throw new Error("Failed to fetch pricing rules");
             const pricingRules = await response.json();
             // Parse rules into { [day]: { [slot]: price } }
-            const newPricing = {};
+            const newPricing: CourtPricing = {
+              weekdayRanges: [],
+              weekendRanges: [],
+            };
             pricingRules.forEach((rule) => {
               const day = [
                 "Sunday",
@@ -777,8 +789,14 @@ export function AdminScheduleManagement() {
                 "Friday",
                 "Saturday",
               ][rule.dayOfWeek];
-              if (!newPricing[day]) newPricing[day] = {};
-              newPricing[day][rule.timeSlot] = rule.price;
+              if (!newPricing[day])
+                newPricing[day] = { weekdayRanges: [], weekendRanges: [] };
+              newPricing[day].weekdayRanges.push({
+                startTime: rule.timeSlot.split("-")[0],
+                endTime: rule.timeSlot.split("-")[1],
+                price: rule.price,
+                days: [day],
+              });
             });
             setCourtPricing((prev) => ({ ...prev, [court.id]: newPricing }));
           } catch (e) {
@@ -807,7 +825,10 @@ export function AdminScheduleManagement() {
         if (!response.ok) throw new Error("Failed to fetch pricing rules");
         const pricingRules = await response.json();
         // Parse rules into { [day]: { [slot]: price } }
-        const newPricing: { [day: string]: { [slot: string]: string } } = {};
+        const newPricing: CourtPricing = {
+          weekdayRanges: [],
+          weekendRanges: [],
+        };
         pricingRules.forEach((rule: any) => {
           const day = [
             "Sunday",
@@ -818,8 +839,14 @@ export function AdminScheduleManagement() {
             "Friday",
             "Saturday",
           ][rule.dayOfWeek];
-          if (!newPricing[day]) newPricing[day] = {};
-          newPricing[day][rule.timeSlot] = rule.price;
+          if (!newPricing[day])
+            newPricing[day] = { weekdayRanges: [], weekendRanges: [] };
+          newPricing[day].weekdayRanges.push({
+            startTime: rule.timeSlot.split("-")[0],
+            endTime: rule.timeSlot.split("-")[1],
+            price: rule.price,
+            days: [day],
+          });
         });
         setCourtPricing((prev) => ({ ...prev, [court.id]: newPricing }));
       } catch (e) {
@@ -955,16 +982,26 @@ export function AdminScheduleManagement() {
       // Optionally, refetch pricing for this court and clear editing state
       setCourtPricing((prev) => {
         const newPricing = { ...prev };
-        if (!newPricing[courtId]) newPricing[courtId] = {};
+        if (!newPricing[courtId])
+          newPricing[courtId] = { weekdayRanges: [], weekendRanges: [] };
         for (const update of updates) {
           // Map backend dayOfWeek back to UI day
           const day = daysOfWeek[(update.dayOfWeek + 6) % 7];
-          if (!newPricing[courtId][day]) newPricing[courtId][day] = {};
-          newPricing[courtId][day][update.timeSlot.trim()] = update.price;
+          if (!newPricing[courtId][day])
+            newPricing[courtId][day] = { weekdayRanges: [], weekendRanges: [] };
+          newPricing[courtId][day].weekdayRanges.push({
+            startTime: update.timeSlot.split("-")[0],
+            endTime: update.timeSlot.split("-")[1],
+            price: update.price,
+            days: [day],
+          });
         }
         return newPricing;
       });
-      setEditingPrices((prev) => ({ ...prev, [courtId]: {} }));
+      setEditingPrices((prev) => ({
+        ...prev,
+        [courtId]: { weekdayRanges: [], weekendRanges: [] },
+      }));
     }
   };
 
@@ -1051,6 +1088,337 @@ export function AdminScheduleManagement() {
   const [confirmSaveCourtId, setConfirmSaveCourtId] = useState<number | null>(
     null
   );
+
+  // Add new state for managing price ranges
+  const [editingCourtId, setEditingCourtId] = useState<number | null>(null);
+  const [newPriceRange, setNewPriceRange] = useState<PriceRange>({
+    startTime: "06:00",
+    endTime: "08:00",
+    price: "",
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  });
+
+  // Function to handle saving price ranges
+  const handleSavePriceRanges = async (courtId: number) => {
+    try {
+      const response = await fetch("/api/pricing-rules/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          courtId,
+          rules: [
+            ...editingPrices[courtId].weekdayRanges.flatMap((range) =>
+              range.days.map((day) => ({
+                dayOfWeek: daysOfWeek.indexOf(day),
+                timeSlot: `${range.startTime}-${range.endTime}`,
+                price: range.price,
+              }))
+            ),
+            ...editingPrices[courtId].weekendRanges.flatMap((range) =>
+              range.days.map((day) => ({
+                dayOfWeek: daysOfWeek.indexOf(day),
+                timeSlot: `${range.startTime}-${range.endTime}`,
+                price: range.price,
+              }))
+            ),
+          ],
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to save pricing rules");
+
+      // Update the court pricing state with the new values
+      setCourtPricing((prev) => ({
+        ...prev,
+        [courtId]: editingPrices[courtId],
+      }));
+
+      // Clear editing state
+      setEditingPrices((prev) => {
+        const newState = { ...prev };
+        delete newState[courtId];
+        return newState;
+      });
+
+      toast({
+        title: "Success",
+        description: "Pricing rules updated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save pricing rules",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to add a new price range
+  const handleAddPriceRange = (courtId: number, isWeekend: boolean) => {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [courtId]: {
+        ...prev[courtId],
+        [isWeekend ? "weekendRanges" : "weekdayRanges"]: [
+          ...(prev[courtId]?.[isWeekend ? "weekendRanges" : "weekdayRanges"] ||
+            []),
+          {
+            startTime: "06:00",
+            endTime: "08:00",
+            price: "",
+            days: isWeekend
+              ? ["Saturday", "Sunday"]
+              : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          },
+        ],
+      },
+    }));
+  };
+
+  // Function to remove a price range
+  const handleRemovePriceRange = (
+    courtId: number,
+    isWeekend: boolean,
+    index: number
+  ) => {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [courtId]: {
+        ...prev[courtId],
+        [isWeekend ? "weekendRanges" : "weekdayRanges"]: prev[courtId][
+          isWeekend ? "weekendRanges" : "weekdayRanges"
+        ].filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  // Function to update a price range
+  const handleUpdatePriceRange = (
+    courtId: number,
+    isWeekend: boolean,
+    index: number,
+    field: keyof PriceRange,
+    value: string | string[]
+  ) => {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [courtId]: {
+        ...prev[courtId],
+        [isWeekend ? "weekendRanges" : "weekdayRanges"]: prev[courtId][
+          isWeekend ? "weekendRanges" : "weekdayRanges"
+        ].map((range, i) =>
+          i === index ? { ...range, [field]: value } : range
+        ),
+      },
+    }));
+  };
+
+  // Replace the existing price grid UI with the new range-based UI
+  const renderPriceRanges = (court: Court) => {
+    const isEditing = editingPrices[court.id];
+    const pricing = isEditing ||
+      courtPricing[court.id] || { weekdayRanges: [], weekendRanges: [] };
+
+    return (
+      <div className="space-y-4">
+        {/* Weekday Pricing */}
+        <div className="space-y-2">
+          <h4 className="font-medium">Monday - Friday</h4>
+          {pricing.weekdayRanges.map((range, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={range.startTime}
+                onChange={(e) =>
+                  handleUpdatePriceRange(
+                    court.id,
+                    false,
+                    index,
+                    "startTime",
+                    e.target.value
+                  )
+                }
+                disabled={!isEditing}
+              />
+              <span>to</span>
+              <Input
+                type="time"
+                value={range.endTime}
+                onChange={(e) =>
+                  handleUpdatePriceRange(
+                    court.id,
+                    false,
+                    index,
+                    "endTime",
+                    e.target.value
+                  )
+                }
+                disabled={!isEditing}
+              />
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 mr-1">€</span>
+                <Input
+                  type="number"
+                  value={range.price}
+                  onChange={(e) =>
+                    handleUpdatePriceRange(
+                      court.id,
+                      false,
+                      index,
+                      "price",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Price"
+                  disabled={!isEditing}
+                  className="w-24"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              {isEditing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemovePriceRange(court.id, false, index)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAddPriceRange(court.id, false)}
+            >
+              Add Time Range
+            </Button>
+          )}
+        </div>
+
+        {/* Weekend Pricing */}
+        <div className="space-y-2">
+          <h4 className="font-medium">Saturday - Sunday</h4>
+          {pricing.weekendRanges.map((range, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={range.startTime}
+                onChange={(e) =>
+                  handleUpdatePriceRange(
+                    court.id,
+                    true,
+                    index,
+                    "startTime",
+                    e.target.value
+                  )
+                }
+                disabled={!isEditing}
+              />
+              <span>to</span>
+              <Input
+                type="time"
+                value={range.endTime}
+                onChange={(e) =>
+                  handleUpdatePriceRange(
+                    court.id,
+                    true,
+                    index,
+                    "endTime",
+                    e.target.value
+                  )
+                }
+                disabled={!isEditing}
+              />
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500 mr-1">€</span>
+                <Input
+                  type="number"
+                  value={range.price}
+                  onChange={(e) =>
+                    handleUpdatePriceRange(
+                      court.id,
+                      true,
+                      index,
+                      "price",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Price"
+                  disabled={!isEditing}
+                  className="w-24"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              {isEditing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemovePriceRange(court.id, true, index)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAddPriceRange(court.id, true)}
+            >
+              Add Time Range
+            </Button>
+          )}
+        </div>
+
+        {/* Edit/Save Buttons */}
+        <div className="flex justify-end gap-2">
+          {!isEditing ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingPrices((prev) => ({
+                  ...prev,
+                  [court.id]: {
+                    weekdayRanges: [...(pricing.weekdayRanges || [])],
+                    weekendRanges: [...(pricing.weekendRanges || [])],
+                  },
+                }));
+              }}
+            >
+              Edit Prices
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingPrices((prev) => {
+                    const newState = { ...prev };
+                    delete newState[court.id];
+                    return newState;
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => handleSavePriceRanges(court.id)}
+              >
+                Save Changes
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
