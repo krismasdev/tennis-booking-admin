@@ -1017,6 +1017,252 @@ export function AdminScheduleManagement() {
               <Calendar className="h-5 w-5" />
               Courts Calendar - Weekly View
             </CardTitle>
+            <Dialog
+              open={isAddCourtDialogOpen}
+              onOpenChange={setIsAddCourtDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Court
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add New Court</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  {/* Court Name */}
+                  <div>
+                    <Label htmlFor="court-name">Court Name</Label>
+                    <Input
+                      id="court-name"
+                      value={courtName}
+                      onChange={(e) => setCourtName(e.target.value)}
+                      placeholder="Enter court name"
+                    />
+                  </div>
+                  {/* Open and Close Time */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="open-time">Open Time</Label>
+                      <Select value={openTime} onValueChange={setOpenTime}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select open time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((time) => (
+                            <SelectItem key={`open-${time}`} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="close-time">Close Time</Label>
+                      <Select value={closeTime} onValueChange={setCloseTime}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select close time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {closingTimeOptions.map((time) => (
+                            <SelectItem key={`close-${time}`} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {/* Time Slots Preview */}
+                  {generatedTimeSlots.length > 0 && (
+                    <div>
+                      <Label>
+                        Generated Time Slots ({openTime} - {closeTime})
+                      </Label>
+                      <div className="mt-2 p-4 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                        <div className="grid grid-cols-4 gap-2 text-sm">
+                          {generatedTimeSlots.map((slot, index) => (
+                            <div
+                              key={index}
+                              className="bg-white p-2 rounded border text-center"
+                            >
+                              {slot.startTime} - {slot.endTime}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Weekly Pricing (copied from previous version) */}
+                  <div>
+                    <Label>Weekly Pricing</Label>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Set individual prices for each time slot on Monday and
+                      Saturday. Other days will automatically follow the pricing
+                      rules.
+                    </p>
+                    {/* Pricing Control Options */}
+                    <div className="flex justify-center space-x-8 mb-6">
+                      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <Checkbox
+                          checked={useMondayPrices}
+                          onCheckedChange={(checked) =>
+                            handleMondayPricesToggle(checked as boolean)
+                          }
+                          className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                        />
+                        <span className="text-lg font-medium text-gray-700">
+                          Apply Monday prices to Tue-Fri
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                        <Checkbox
+                          checked={useSaturdayPrices}
+                          onCheckedChange={(checked) =>
+                            handleSaturdayPricesToggle(checked as boolean)
+                          }
+                          className="w-6 h-6 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                        />
+                        <span className="text-lg font-medium text-gray-700">
+                          Apply Saturday prices to Sunday
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {dayPricing.map((day, index) => {
+                        const isMonday = index === 0;
+                        const isSaturday = index === 5;
+                        const isWeekday = index >= 1 && index <= 4; // Tue-Fri
+                        const isSunday = index === 6;
+                        const isBlurred = isWeekday || isSunday;
+                        const canEditManually =
+                          (isWeekday && !useMondayPrices) ||
+                          (isSunday && !useSaturdayPrices);
+                        return (
+                          <div key={day.day}>
+                            <div
+                              className={`border rounded-lg p-4 ${
+                                isBlurred && !canEditManually
+                                  ? "opacity-50 blur-[1px]"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-20 text-lg font-bold text-gray-900">
+                                    {day.day}
+                                  </div>
+                                </div>
+                                {((isWeekday && useMondayPrices) ||
+                                  (isSunday && useSaturdayPrices)) && (
+                                  <div className="text-sm text-blue-600 font-medium">
+                                    Auto-applied from{" "}
+                                    {isWeekday ? "Monday" : "Saturday"}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Time Slot Pricing Grid - Show for all days */}
+                              {!(
+                                (isWeekday && useMondayPrices) ||
+                                (isSunday && useSaturdayPrices)
+                              ) && (
+                                <div className="mt-4">
+                                  <p className="text-sm font-medium text-gray-700 mb-3">
+                                    Set prices for each time slot:
+                                  </p>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {pricingTimeSlots.map((timeSlot) => (
+                                      <div
+                                        key={timeSlot}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <Label className="text-xs text-gray-600 whitespace-nowrap">
+                                          {timeSlot}
+                                        </Label>
+                                        <div className="flex items-center">
+                                          <span className="text-xs text-gray-500 mr-1">
+                                            €
+                                          </span>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={
+                                              timeSlotPricing[day.day]?.[
+                                                timeSlot
+                                              ] || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleTimeSlotPriceChange(
+                                                day.day,
+                                                timeSlot,
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder="0.00"
+                                            className={`text-xs h-8 w-20 ${
+                                              (isWeekday && useMondayPrices) ||
+                                              (isSunday && useSaturdayPrices)
+                                                ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                                : ""
+                                            }`}
+                                            disabled={
+                                              (isWeekday && useMondayPrices) ||
+                                              (isSunday && useSaturdayPrices)
+                                            }
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Show auto-applied message for days that inherit pricing */}
+                              {((isWeekday && useMondayPrices) ||
+                                (isSunday && useSaturdayPrices)) && (
+                                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                  <p className="text-sm text-blue-700">
+                                    Pricing automatically applied from{" "}
+                                    {isWeekday ? "Monday" : "Saturday"}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsAddCourtDialogOpen(false);
+                        handleResetCourtForm();
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleAddCourt}
+                      disabled={addCourtMutation.isPending}
+                      className="flex-1"
+                    >
+                      {addCourtMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Add Court"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
 
