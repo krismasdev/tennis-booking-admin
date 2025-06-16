@@ -43,6 +43,8 @@ import {
   Euro,
   Clock,
   X,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -1500,6 +1502,11 @@ export function AdminScheduleManagement() {
     );
   };
 
+  // Add new state for court editing
+  const [editingCourt, setEditingCourt] = useState<Court | null>(null);
+  const [isEditCourtDialogOpen, setIsEditCourtDialogOpen] = useState(false);
+
+  // Update the court sections rendering
   return (
     <div className="space-y-6">
       <style>{numberInputStyles}</style>
@@ -1760,48 +1767,9 @@ export function AdminScheduleManagement() {
         </CardHeader>
 
         <CardContent>
-          {/* Legend */}
-          <div className="flex flex-wrap gap-4 mb-6 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-50 border border-green-200 rounded"></div>
-              <span>Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-yellow-50 border border-yellow-200 rounded"></div>
-              <span>Pending</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-50 border border-red-200 rounded"></div>
-              <span>Booked</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
-              <span>Unavailable</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Euro className="w-4 h-4 text-blue-600" />
-              <span>Click slots to edit pricing</span>
-            </div>
-          </div>
-
           {/* Calendar Grid */}
           <div className="overflow-x-auto">
             <div className="min-w-[1200px]">
-              {/* Header with days */}
-              <div className="grid grid-cols-8 gap-1 mb-4">
-                <div className="font-medium text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
-                  <Clock className="h-4 w-4 mx-auto" />
-                </div>
-                {daysOfWeek.map((day) => (
-                  <div
-                    key={day}
-                    className="font-medium text-sm text-center p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="font-semibold">{day}</div>
-                  </div>
-                ))}
-              </div>
-
               {/* Court sections */}
               {courts
                 .filter((court) => court.isActive)
@@ -1818,79 +1786,149 @@ export function AdminScheduleManagement() {
                             {court.description}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">Base Rate</p>
-                          <p className="font-bold text-blue-600">
-                            €{court.hourlyRate}/hour
-                          </p>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600">Base Rate</p>
+                            <p className="font-bold text-blue-600">
+                              €{court.hourlyRate}/hour
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingCourt(court);
+                                setIsEditCourtDialogOpen(true);
+                              }}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleExpandCourt(court)}
+                            >
+                              {expandedCourtId === court.id ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Time slots for this court */}
-                    <div className="space-y-1">
-                      {allTimeSlots.map((time) => (
-                        <div
-                          key={`${court.id}-${time}`}
-                          className="grid grid-cols-8 gap-1"
-                        >
-                          <div className="text-sm text-gray-600 p-2 flex items-center justify-center bg-gray-50 rounded font-medium">
-                            {time}
+                    {/* Time slots for this court - only show if expanded */}
+                    {expandedCourtId === court.id && (
+                      <>
+                        {/* Header with days - moved inside each court section */}
+                        <div className="grid grid-cols-8 gap-1 mb-4">
+                          <div className="font-medium text-sm text-gray-600 p-3 bg-gray-50 rounded-lg">
+                            <Clock className="h-4 w-4 mx-auto" />
                           </div>
-                          {daysOfWeek.map((day) =>
-                            renderCalendarCell(court, day, time)
-                          )}
+                          {daysOfWeek.map((day) => (
+                            <div
+                              key={day}
+                              className="font-medium text-sm text-center p-3 bg-gray-50 rounded-lg"
+                            >
+                              <div className="font-semibold">{day}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
 
-                    {/* In the calendar grid, replace the Save button with a Dialog for confirmation */}
-                    {Object.keys(editingPrices[court.id] || {}).some(
-                      (day) =>
-                        Object.keys(editingPrices[court.id][day] || {}).length >
-                        0
-                    ) && (
-                      <Dialog
-                        open={confirmSaveCourtId === court.id}
-                        onOpenChange={(open) =>
-                          setConfirmSaveCourtId(open ? court.id : null)
-                        }
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            onClick={() => setConfirmSaveCourtId(court.id)}
-                            variant="primary"
+                        <div className="space-y-1">
+                          {allTimeSlots
+                            .filter((time) => {
+                              const [hour, minute] = time
+                                .split("-")[0]
+                                .split(":")
+                                .map(Number);
+                              const courtOpenTime = court.openTime
+                                .split(":")
+                                .map(Number);
+                              const courtCloseTime = court.closeTime
+                                .split(":")
+                                .map(Number);
+
+                              // Convert to minutes for easier comparison
+                              const slotMinutes = hour * 60 + minute;
+                              const openMinutes =
+                                courtOpenTime[0] * 60 + courtOpenTime[1];
+                              const closeMinutes =
+                                courtCloseTime[0] * 60 + courtCloseTime[1];
+
+                              return (
+                                slotMinutes >= openMinutes &&
+                                slotMinutes < closeMinutes
+                              );
+                            })
+                            .map((time) => (
+                              <div
+                                key={`${court.id}-${time}`}
+                                className="grid grid-cols-8 gap-1"
+                              >
+                                <div className="text-sm text-gray-600 p-2 flex items-center justify-center bg-gray-50 rounded font-medium">
+                                  {time}
+                                </div>
+                                {daysOfWeek.map((day) =>
+                                  renderCalendarCell(court, day, time)
+                                )}
+                              </div>
+                            ))}
+                        </div>
+
+                        {/* Save button for price changes */}
+                        {Object.keys(editingPrices[court.id] || {}).some(
+                          (day) =>
+                            Object.keys(editingPrices[court.id][day] || {})
+                              .length > 0
+                        ) && (
+                          <Dialog
+                            open={confirmSaveCourtId === court.id}
+                            onOpenChange={(open) =>
+                              setConfirmSaveCourtId(open ? court.id : null)
+                            }
                           >
-                            Save
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Confirm Save</DialogTitle>
-                          </DialogHeader>
-                          <div className="py-4">
-                            Are you sure you want to save these price changes
-                            for <b>{court.name}</b>?
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => setConfirmSaveCourtId(null)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="primary"
-                              onClick={async () => {
-                                await handleSaveCourtPrices(court.id);
-                                setConfirmSaveCourtId(null);
-                              }}
-                            >
-                              Confirm
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                onClick={() => setConfirmSaveCourtId(court.id)}
+                                variant="primary"
+                                className="mt-4"
+                              >
+                                Save Price Changes
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Confirm Save</DialogTitle>
+                              </DialogHeader>
+                              <div className="py-4">
+                                Are you sure you want to save these price
+                                changes for <b>{court.name}</b>?
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setConfirmSaveCourtId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  onClick={async () => {
+                                    await handleSaveCourtPrices(court.id);
+                                    setConfirmSaveCourtId(null);
+                                  }}
+                                >
+                                  Confirm
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
@@ -1912,6 +1950,91 @@ export function AdminScheduleManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Court Dialog */}
+      <Dialog
+        open={isEditCourtDialogOpen}
+        onOpenChange={setIsEditCourtDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Court</DialogTitle>
+          </DialogHeader>
+          {editingCourt && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-court-name">Court Name</Label>
+                <Input
+                  id="edit-court-name"
+                  value={editingCourt.name}
+                  onChange={(e) =>
+                    setEditingCourt({ ...editingCourt, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-open-time">Open Time</Label>
+                  <Select
+                    value={editingCourt.openTime}
+                    onValueChange={(value) =>
+                      setEditingCourt({ ...editingCourt, openTime: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select open time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map((time) => (
+                        <SelectItem key={`edit-open-${time}`} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-close-time">Close Time</Label>
+                  <Select
+                    value={editingCourt.closeTime}
+                    onValueChange={(value) =>
+                      setEditingCourt({ ...editingCourt, closeTime: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select close time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {closingTimeOptions.map((time) => (
+                        <SelectItem key={`edit-close-${time}`} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditCourtDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    // Add your update court mutation here
+                    setIsEditCourtDialogOpen(false);
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
