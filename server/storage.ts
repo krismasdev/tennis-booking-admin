@@ -66,6 +66,7 @@ export interface IStorage {
   getAllPricingRules(): Promise<any[]>;
   createOrUpdatePricingRule(
     courtId: number,
+    dayOfWeek: number,
     timeSlot: string,
     price: string
   ): Promise<any>;
@@ -502,6 +503,7 @@ export class DatabaseStorage implements IStorage {
 
   async createOrUpdatePricingRule(
     courtId: number,
+    dayOfWeek: number,
     timeSlot: string,
     price: string
   ): Promise<any> {
@@ -510,6 +512,7 @@ export class DatabaseStorage implements IStorage {
       .from(courtPricingRules)
       .where(
         eq(courtPricingRules.courtId, courtId) &&
+          eq(courtPricingRules.dayOfWeek, dayOfWeek) &&
           eq(courtPricingRules.timeSlot, timeSlot)
       );
 
@@ -522,7 +525,7 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(courtPricingRules).values({
         courtId,
-        dayOfWeek: 0, // Assuming default dayOfWeek
+        dayOfWeek,
         timeSlot,
         price,
         isActive: true,
