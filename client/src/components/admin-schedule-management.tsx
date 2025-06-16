@@ -774,39 +774,49 @@ export function AdminScheduleManagement() {
             );
             if (!response.ok) throw new Error("Failed to fetch pricing rules");
             const pricingRules = await response.json();
-            // Parse rules into { [day]: { [slot]: price } }
+
+            // Initialize pricing structure
             const newPricing: CourtPricing = {
               weekdayRanges: [],
               weekendRanges: [],
             };
-            pricingRules.forEach((rule) => {
-              const day = [
-                "Sunday",
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-              ][rule.dayOfWeek];
-              if (!newPricing[day])
-                newPricing[day] = { weekdayRanges: [], weekendRanges: [] };
-              newPricing[day].weekdayRanges.push({
-                startTime: rule.timeSlot.split("-")[0],
-                endTime: rule.timeSlot.split("-")[1],
+
+            // Process pricing rules
+            pricingRules.forEach((rule: any) => {
+              const [startTime, endTime] = rule.timeSlot.split("-");
+              const priceRange = {
+                startTime,
+                endTime,
                 price: rule.price,
-                days: [day],
-              });
+                days: [rule.dayOfWeek],
+              };
+
+              // Add to appropriate ranges based on day
+              if (rule.dayOfWeek >= 1 && rule.dayOfWeek <= 5) {
+                // Weekdays (Monday-Friday)
+                newPricing.weekdayRanges.push(priceRange);
+              } else {
+                // Weekends (Saturday-Sunday)
+                newPricing.weekendRanges.push(priceRange);
+              }
             });
+
+            // Sort ranges by start time
+            newPricing.weekdayRanges.sort((a, b) =>
+              a.startTime.localeCompare(b.startTime)
+            );
+            newPricing.weekendRanges.sort((a, b) =>
+              a.startTime.localeCompare(b.startTime)
+            );
+
             setCourtPricing((prev) => ({ ...prev, [court.id]: newPricing }));
           } catch (e) {
-            // Optionally show error
+            console.error("Error fetching pricing rules:", e);
           }
         }
       }
     }
     fetchAllCourtPricing();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courts]);
 
   // Fetch pricing rules for a court when expanded
@@ -1101,29 +1111,33 @@ export function AdminScheduleManagement() {
   // Function to handle saving price ranges
   const handleSavePriceRanges = async (courtId: number) => {
     try {
+      const pricing = editingPrices[courtId];
+      if (!pricing) return;
+
+      const rules = [
+        ...pricing.weekdayRanges.flatMap((range) =>
+          range.days.map((day) => ({
+            courtId,
+            dayOfWeek: day,
+            timeSlot: `${range.startTime}-${range.endTime}`,
+            price: range.price,
+          }))
+        ),
+        ...pricing.weekendRanges.flatMap((range) =>
+          range.days.map((day) => ({
+            courtId,
+            dayOfWeek: day,
+            timeSlot: `${range.startTime}-${range.endTime}`,
+            price: range.price,
+          }))
+        ),
+      ];
+
       const response = await fetch("/api/pricing-rules/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          courtId,
-          rules: [
-            ...editingPrices[courtId].weekdayRanges.flatMap((range) =>
-              range.days.map((day) => ({
-                dayOfWeek: daysOfWeek.indexOf(day),
-                timeSlot: `${range.startTime}-${range.endTime}`,
-                price: range.price,
-              }))
-            ),
-            ...editingPrices[courtId].weekendRanges.flatMap((range) =>
-              range.days.map((day) => ({
-                dayOfWeek: daysOfWeek.indexOf(day),
-                timeSlot: `${range.startTime}-${range.endTime}`,
-                price: range.price,
-              }))
-            ),
-          ],
-        }),
+        body: JSON.stringify({ rules }),
       });
 
       if (!response.ok) throw new Error("Failed to save pricing rules");
@@ -1131,7 +1145,7 @@ export function AdminScheduleManagement() {
       // Update the court pricing state with the new values
       setCourtPricing((prev) => ({
         ...prev,
-        [courtId]: editingPrices[courtId],
+        [courtId]: pricing,
       }));
 
       // Clear editing state
@@ -1166,10 +1180,8 @@ export function AdminScheduleManagement() {
           {
             startTime: "06:00",
             endTime: "08:00",
-            price: "",
-            days: isWeekend
-              ? ["Saturday", "Sunday"]
-              : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            price: "0.00",
+            days: isWeekend ? [6, 0] : [1, 2, 3, 4, 5], // 0=Sunday, 1=Monday, etc.
           },
         ],
       },
@@ -1208,7 +1220,15 @@ export function AdminScheduleManagement() {
         [isWeekend ? "weekendRanges" : "weekdayRanges"]: prev[courtId][
           isWeekend ? "weekendRanges" : "weekdayRanges"
         ].map((range, i) =>
-          i === index ? { ...range, [field]: value } : range
+          i === index
+            ? {
+                ...range,
+                [field]:
+                  field === "price"
+                    ? parseFloat(value as string).toFixed(2)
+                    : value,
+              }
+            : range
         ),
       },
     }));
