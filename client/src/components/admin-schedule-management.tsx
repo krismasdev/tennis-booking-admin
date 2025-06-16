@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -749,6 +749,47 @@ export function AdminScheduleManagement() {
       [day: string]: { [slot: string]: string };
     };
   }>({});
+
+  // After courts are loaded, fetch pricing for all courts
+  useEffect(() => {
+    async function fetchAllCourtPricing() {
+      if (!courts || courts.length === 0) return;
+      for (const court of courts) {
+        if (!courtPricing[court.id]) {
+          try {
+            const response = await fetch(
+              `/api/pricing-rules?courtId=${court.id}`,
+              {
+                credentials: "include",
+              }
+            );
+            if (!response.ok) throw new Error("Failed to fetch pricing rules");
+            const pricingRules = await response.json();
+            // Parse rules into { [day]: { [slot]: price } }
+            const newPricing = {};
+            pricingRules.forEach((rule) => {
+              const day = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+              ][rule.dayOfWeek];
+              if (!newPricing[day]) newPricing[day] = {};
+              newPricing[day][rule.timeSlot] = rule.price;
+            });
+            setCourtPricing((prev) => ({ ...prev, [court.id]: newPricing }));
+          } catch (e) {
+            // Optionally show error
+          }
+        }
+      }
+    }
+    fetchAllCourtPricing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courts]);
 
   // Fetch pricing rules for a court when expanded
   const handleExpandCourt = async (court: Court) => {
