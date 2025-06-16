@@ -1506,6 +1506,39 @@ export function AdminScheduleManagement() {
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [isEditCourtDialogOpen, setIsEditCourtDialogOpen] = useState(false);
 
+  // Helper to group and format price ranges for display
+  function getFormattedPriceRanges(
+    courtId: number,
+    openTime: string,
+    closeTime: string
+  ) {
+    const pricing = courtPricing[courtId];
+    if (!pricing) return { monFri: [], satSun: [] };
+
+    // Helper to filter and format ranges
+    const formatRanges = (ranges: any[], daysLabel: string) => {
+      return ranges
+        .filter((range) => {
+          // Only show ranges within open/close time
+          const [start, end] = [
+            range.startTime || range.timeSlot?.split("-")[0],
+            range.endTime || range.timeSlot?.split("-")[1],
+          ];
+          return start >= openTime && end <= closeTime;
+        })
+        .map((range) => {
+          const start = range.startTime || range.timeSlot?.split("-")[0];
+          const end = range.endTime || range.timeSlot?.split("-")[1];
+          return `${start}-${end} ${range.price}eur`;
+        });
+    };
+
+    // Mon–Fri: weekdayRanges, Sat–Sun: weekendRanges
+    const monFri = formatRanges(pricing.weekdayRanges, "Mon–Fri");
+    const satSun = formatRanges(pricing.weekendRanges, "Sat–Sun");
+    return { monFri, satSun };
+  }
+
   // Update the court sections rendering
   return (
     <div className="space-y-6">
@@ -1836,6 +1869,40 @@ export function AdminScheduleManagement() {
                               <div className="font-semibold">{day}</div>
                             </div>
                           ))}
+                        </div>
+
+                        {/* Price Ranges Summary */}
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="text-2xl font-bold">
+                            <span>Mon–fri</span>
+                            {getFormattedPriceRanges(
+                              court.id,
+                              court.openTime,
+                              court.closeTime
+                            ).monFri.map((txt, i) => (
+                              <span
+                                key={i}
+                                className="ml-4 text-lg font-normal"
+                              >
+                                {txt}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="text-2xl font-bold">
+                            <span>Sat–sun:</span>
+                            {getFormattedPriceRanges(
+                              court.id,
+                              court.openTime,
+                              court.closeTime
+                            ).satSun.map((txt, i) => (
+                              <span
+                                key={i}
+                                className="ml-4 text-lg font-normal"
+                              >
+                                {txt}
+                              </span>
+                            ))}
+                          </div>
                         </div>
 
                         <div className="space-y-1">
