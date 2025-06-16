@@ -1503,8 +1503,9 @@ export function AdminScheduleManagement() {
               <Button
                 variant="primary"
                 onClick={() => handleSavePriceRanges(court.id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Save Changes
+                Save changes
               </Button>
             </>
           )}
@@ -1908,49 +1909,51 @@ export function AdminScheduleManagement() {
                             {court.name}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {court.description}
+                            Open {court.openTime} - {court.closeTime}
                           </p>
-                          {/* Price Ranges Summary (between name/desc and base rate) */}
-                          <div className="w-full bg-gray-50 rounded px-3 py-1 flex flex-wrap items-center gap-4 text-base font-medium text-gray-700 mt-2 mb-2 border border-gray-200">
-                            <span className="font-semibold text-gray-800">
+                        </div>
+                        {/* Price Ranges Summary (between name/desc and base rate) */}
+                        <div className="w-full rounded px-3 py-1 flex flex-col gap-2 text-base font-medium text-gray-700 mt-2 mb-2">
+                          <div className="flex items-center gap-4">
+                            <span className="font-bold text-gray-800 min-w-[60px]">
                               Mon-Fri:
                             </span>
-                            {getSummaryRanges(
-                              court.id,
-                              court.openTime,
-                              court.closeTime
-                            ).monFri.map((r, i) => (
-                              <span key={i} className="ml-2">
-                                {r.start}-{r.end}{" "}
-                                <span className="text-blue-700">
-                                  {r.price}eur
+                            <div className="flex flex-col">
+                              {getSummaryRanges(
+                                court.id,
+                                court.openTime,
+                                court.closeTime
+                              ).monFri.map((r, i) => (
+                                <span key={i} className="text-gray-700">
+                                  {r.start}-{r.end}{" "}
+                                  <span className="text-blue-700">
+                                    {r.price}eur
+                                  </span>
                                 </span>
-                              </span>
-                            ))}
-                            <span className="font-semibold text-gray-800 ml-6">
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="font-bold text-gray-800 min-w-[60px]">
                               Sat-Sun:
                             </span>
-                            {getSummaryRanges(
-                              court.id,
-                              court.openTime,
-                              court.closeTime
-                            ).satSun.map((r, i) => (
-                              <span key={i} className="ml-2">
-                                {r.start}-{r.end}{" "}
-                                <span className="text-blue-700">
-                                  {r.price}eur
+                            <div className="flex flex-col">
+                              {getSummaryRanges(
+                                court.id,
+                                court.openTime,
+                                court.closeTime
+                              ).satSun.map((r, i) => (
+                                <span key={i} className="text-gray-700">
+                                  {r.start}-{r.end}{" "}
+                                  <span className="text-blue-700">
+                                    {r.price}eur
+                                  </span>
                                 </span>
-                              </span>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600">Base Rate</p>
-                            <p className="font-bold text-blue-600">
-                              €{court.hourlyRate}/hour
-                            </p>
-                          </div>
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
@@ -2053,8 +2056,9 @@ export function AdminScheduleManagement() {
                                   description: `Prices for ${court.name} saved.`,
                                 });
                               }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
-                              Save Changes
+                              Save changes
                             </Button>
                             <Button
                               variant="outline"
@@ -2175,11 +2179,12 @@ export function AdminScheduleManagement() {
                     }
                   }}
                   disabled={updateCourtMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {updateCourtMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    "Save Changes"
+                    "Save changes"
                   )}
                 </Button>
               </div>
