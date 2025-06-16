@@ -1914,7 +1914,7 @@ export function AdminScheduleManagement() {
                         </div>
                         {/* Price Ranges Summary (between name/desc and base rate) */}
                         <div className="w-full rounded px-3 py-1 flex flex-col gap-2 text-base font-medium text-gray-700 mt-2 mb-2">
-                          <div className="flex items-center gap-8">
+                          <div className="flex items-center justify-center gap-16">
                             <div className="flex items-center gap-4">
                               <span className="font-bold text-gray-800 min-w-[60px]">
                                 Mon-Fri:
