@@ -135,12 +135,12 @@ export const AdminSidebar = ({
       active: activeTab === "users",
       onClick: () => onTabChange("users"),
     },
-    {
-      icon: <DollarSign className="h-5 w-5" />,
-      label: "Pricing",
-      active: activeTab === "pricing",
-      onClick: () => onTabChange("pricing"),
-    },
+    // {
+    //   icon: <DollarSign className="h-5 w-5" />,
+    //   label: "Pricing",
+    //   active: activeTab === "pricing",
+    //   onClick: () => onTabChange("pricing"),
+    // },
     {
       icon: <BarChart3 className="h-5 w-5" />,
       label: "Analytics",
@@ -161,12 +161,12 @@ export const AdminSidebar = ({
         },
       ],
     },
-    {
-      icon: <Settings className="h-5 w-5" />,
-      label: "Settings",
-      active: activeTab === "settings",
-      onClick: () => onTabChange("settings"),
-    },
+    // {
+    //   icon: <Settings className="h-5 w-5" />,
+    //   label: "Settings",
+    //   active: activeTab === "settings",
+    //   onClick: () => onTabChange("settings"),
+    // },
   ];
 
   return (
@@ -224,13 +224,13 @@ export const AdminSidebar = ({
 
           {/* User Profile */}
           <div className="px-4 py-4 border-t border-gray-700">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">
-                  {user?.username?.charAt(0).toUpperCase()}
+            <div className="flex flex-col space-y-3 mb-4">
+              <div className="w-full bg-blue-600 rounded-lg p-3 flex items-center justify-center">
+                <span className="text-white font-semibold text-lg">
+                  {user?.username?.toUpperCase()}
                 </span>
               </div>
-              <div>
+              <div className="text-center">
                 <p className="text-white font-medium">{user?.username}</p>
                 <p className="text-gray-400 text-sm">Admin</p>
               </div>
