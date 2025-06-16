@@ -5,14 +5,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
-import { Plus, Edit2, Trash2, Search, Loader2, UserX, UserCheck } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
+  Loader2,
+  UserX,
+  UserCheck,
+} from "lucide-react";
 import { format } from "date-fns";
 
 type UserFormData = z.infer<typeof insertUserSchema>;
@@ -21,7 +42,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  birthday?: string;
+  gender: string;
   role: string;
   isBlocked: boolean;
 }
@@ -42,7 +63,7 @@ export function AdminUserManagement() {
       username: "",
       email: "",
       password: "",
-      birthday: undefined,
+      gender: "male",
       role: "user",
       isBlocked: false,
     },
@@ -76,7 +97,13 @@ export function AdminUserManagement() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: async ({ id, userData }: { id: number; userData: Partial<UserFormData> }) => {
+    mutationFn: async ({
+      id,
+      userData,
+    }: {
+      id: number;
+      userData: Partial<UserFormData>;
+    }) => {
       const response = await apiRequest("PUT", `/api/users/${id}`, userData);
       return response.json();
     },
@@ -170,7 +197,7 @@ export function AdminUserManagement() {
     editUserForm.reset({
       username: user.username,
       email: user.email,
-      birthday: user.birthday,
+      gender: user.gender,
       role: user.role,
       isBlocked: user.isBlocked,
     });
@@ -200,9 +227,10 @@ export function AdminUserManagement() {
     }
   };
 
-  const filteredUsers = users.filter((user) =>
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = users.filter(
+    (user) =>
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -221,7 +249,10 @@ export function AdminUserManagement() {
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
               </DialogHeader>
-              <form onSubmit={addUserForm.handleSubmit(handleAddUser)} className="space-y-4">
+              <form
+                onSubmit={addUserForm.handleSubmit(handleAddUser)}
+                className="space-y-4"
+              >
                 <div>
                   <Label htmlFor="add-username">Username</Label>
                   <Input
@@ -252,12 +283,20 @@ export function AdminUserManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="add-birthday">Birthday</Label>
-                  <Input
-                    id="add-birthday"
-                    type="date"
-                    {...addUserForm.register("birthday")}
-                  />
+                  <Label htmlFor="add-gender">Gender</Label>
+                  <select
+                    id="add-gender"
+                    {...addUserForm.register("gender")}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                  {addUserForm.formState.errors.gender && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {addUserForm.formState.errors.gender.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -339,7 +378,7 @@ export function AdminUserManagement() {
               <TableRow>
                 <TableHead>Username</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Birthday</TableHead>
+                <TableHead>Gender</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -351,25 +390,38 @@ export function AdminUserManagement() {
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    {user.birthday ? format(new Date(user.birthday), "MMM dd, yyyy") : "Not set"}
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.gender === "male"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-pink-100 text-pink-800"
+                      }`}
+                    >
+                      {user.gender.charAt(0).toUpperCase() +
+                        user.gender.slice(1)}
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.role === 'admin'
-                        ? 'bg-purple-100 text-purple-800'
-                        : user.role === 'vendor'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.role === "admin"
+                          ? "bg-purple-100 text-purple-800"
+                          : user.role === "vendor"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.isBlocked
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.isBlocked
+                          ? "bg-red-100 text-red-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
                       {user.isBlocked ? "Blocked" : "Active"}
                     </span>
                   </TableCell>
@@ -418,12 +470,18 @@ export function AdminUserManagement() {
 
         {/* Edit User Dialog */}
         {editingUser && (
-          <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+          <Dialog
+            open={!!editingUser}
+            onOpenChange={() => setEditingUser(null)}
+          >
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
               </DialogHeader>
-              <form onSubmit={editUserForm.handleSubmit(handleUpdateUser)} className="space-y-4">
+              <form
+                onSubmit={editUserForm.handleSubmit(handleUpdateUser)}
+                className="space-y-4"
+              >
                 <div>
                   <Label htmlFor="edit-username">Username</Label>
                   <Input
@@ -444,12 +502,15 @@ export function AdminUserManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="edit-birthday">Birthday</Label>
-                  <Input
-                    id="edit-birthday"
-                    type="date"
-                    {...editUserForm.register("birthday")}
-                  />
+                  <Label htmlFor="edit-gender">Gender</Label>
+                  <select
+                    id="edit-gender"
+                    {...editUserForm.register("gender")}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
                 </div>
 
                 <div>

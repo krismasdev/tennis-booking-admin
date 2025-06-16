@@ -29,16 +29,18 @@ async function comparePasswords(supplied: string, stored: string) {
     const parts = stored.split(".");
     if (parts.length !== 2) {
       // Handle legacy passwords that might not have salt
-      console.warn("Invalid password format detected, might be legacy password");
+      console.warn(
+        "Invalid password format detected, might be legacy password"
+      );
       return false;
     }
-    
+
     const [hashed, salt] = parts;
     if (!hashed || !salt) {
       console.warn("Missing hash or salt in stored password");
       return false;
     }
-    
+
     const hashedBuf = Buffer.from(hashed, "hex");
     const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
     return timingSafeEqual(hashedBuf, suppliedBuf);
@@ -68,18 +70,18 @@ export function setupAuth(app: Express) {
         if (!user) {
           return done(null, false, { message: "User not found" });
         }
-        
+
         const isValidPassword = await comparePasswords(password, user.password);
         if (!isValidPassword) {
           return done(null, false, { message: "Invalid password" });
         }
-        
+
         return done(null, user);
       } catch (error) {
         console.error("Login error:", error);
         return done(error);
       }
-    }),
+    })
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
@@ -99,6 +101,7 @@ export function setupAuth(app: Express) {
       const user = await storage.createUser({
         ...req.body,
         password: hashedPassword,
+        gender: req.body.gender || "male", // Default to male if not provided
       });
 
       req.login(user, (err) => {
@@ -117,20 +120,21 @@ export function setupAuth(app: Express) {
         console.error("Login authentication error:", err);
         return res.status(500).json({ message: "Authentication error" });
       }
-      
+
       if (!user) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           message: info?.message || "Invalid credentials",
-          suggestion: "If you're having trouble logging in, your password may need to be reset. Please contact an administrator."
+          suggestion:
+            "If you're having trouble logging in, your password may need to be reset. Please contact an administrator.",
         });
       }
-      
+
       req.login(user, (loginErr: any) => {
         if (loginErr) {
           console.error("Login session error:", loginErr);
           return res.status(500).json({ message: "Session creation failed" });
         }
-        
+
         res.status(200).json(user);
       });
     })(req, res, next);
@@ -152,19 +156,23 @@ export function setupAuth(app: Express) {
   app.post("/api/reset-password", async (req, res) => {
     try {
       const { username, newPassword } = req.body;
-      
+
       if (!username || !newPassword) {
-        return res.status(400).json({ message: "Username and new password are required" });
+        return res
+          .status(400)
+          .json({ message: "Username and new password are required" });
       }
-      
+
       const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       const hashedPassword = await hashPassword(newPassword);
-      const updatedUser = await storage.updateUser(user.id, { password: hashedPassword });
-      
+      const updatedUser = await storage.updateUser(user.id, {
+        password: hashedPassword,
+      });
+
       if (updatedUser) {
         res.json({ message: "Password updated successfully" });
       } else {

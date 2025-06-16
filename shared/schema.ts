@@ -17,7 +17,7 @@ export const users = mysqlTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
-  birthday: date("birthday"),
+  gender: text("gender").notNull().default("male"),
   role: text("role").notNull().default("user"), // user, admin, vendor
   isBlocked: boolean("is_blocked").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -117,6 +117,7 @@ export const insertUserSchema = createInsertSchema(users)
   .extend({
     email: z.string().email(),
     password: z.string().min(6),
+    gender: z.enum(["male", "female"]),
     role: z.enum(["user", "admin", "vendor"]).default("user"),
   });
 
