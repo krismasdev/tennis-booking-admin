@@ -1016,6 +1016,25 @@ export function AdminScheduleManagement() {
     setEditingValue("");
   };
 
+  // Helper to set price for a court, day, slot
+  function setCourtSlotPrice(
+    courtId: number,
+    day: string,
+    slot: string,
+    price: string
+  ) {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [courtId]: {
+        ...prev[courtId],
+        [day]: {
+          ...(prev[courtId]?.[day] || {}),
+          [slot]: price,
+        },
+      },
+    }));
+  }
+
   const handleSaveCourtPrices = async (courtId: number) => {
     const updates = [];
     for (const day of daysOfWeek) {
