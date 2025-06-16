@@ -61,7 +61,6 @@ export default function AuthPage() {
       username: "",
       email: "",
       password: "",
-      birthday: undefined,
       role: "user",
       isBlocked: false,
     },
@@ -197,20 +196,6 @@ export default function AuthPage() {
                       {registerForm.formState.errors.email && (
                         <p className="text-sm text-red-600 mt-1">
                           {registerForm.formState.errors.email.message}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="register-birthday">Birthday</Label>
-                      <Input
-                        id="register-birthday"
-                        type="date"
-                        {...registerForm.register("birthday")}
-                      />
-                      {registerForm.formState.errors.birthday && (
-                        <p className="text-sm text-red-600 mt-1">
-                          {registerForm.formState.errors.birthday.message}
                         </p>
                       )}
                     </div>
