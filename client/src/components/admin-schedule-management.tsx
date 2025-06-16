@@ -865,48 +865,69 @@ export function AdminScheduleManagement() {
     }
   };
 
-  // Update getCourtSlotPrice to correctly handle the pricing data
-  const getCourtSlotPrice = (courtId: number, day: string, slot: string) => {
-    const dayIndex = daysOfWeek.indexOf(day);
+  // Helper to get price for a given court, day, and slot
+  function getCourtSlotPrice(courtId: number, day: string, slot: string) {
     const pricing = courtPricing[courtId];
-
     if (!pricing) return "0.00";
-
-    // Check weekday ranges
-    for (const range of pricing.weekdayRanges) {
-      if (range.days.includes(dayIndex) && range.timeSlot === slot) {
+    const dayIndex = daysOfWeek.indexOf(day); // 0=Monday, 6=Sunday
+    // Mon-Fri: 0-4, Sat:5, Sun:6
+    let ranges = [];
+    if (dayIndex >= 0 && dayIndex <= 4) {
+      ranges = pricing.weekdayRanges;
+    } else {
+      ranges = pricing.weekendRanges;
+    }
+    // Try to match the slot
+    for (const range of ranges) {
+      // Accept both {startTime, endTime} and {timeSlot}
+      const rangeSlot = range.timeSlot || `${range.startTime}-${range.endTime}`;
+      if (rangeSlot === slot) {
         return range.price;
       }
     }
-
-    // Check weekend ranges
-    for (const range of pricing.weekendRanges) {
-      if (range.days.includes(dayIndex) && range.timeSlot === slot) {
-        return range.price;
-      }
-    }
-
     return "0.00";
-  };
+  }
 
-  // Helper: set price for a court, day, slot
-  const setCourtSlotPrice = (
+  // Helper to group and format price ranges for summary
+  function getPriceRangeSummary(
     courtId: number,
-    day: string,
-    slot: string,
-    price: string
-  ) => {
-    setEditingPrices((prev) => ({
-      ...prev,
-      [courtId]: {
-        ...prev[courtId],
-        [day]: {
-          ...((prev[courtId] && prev[courtId][day]) || {}),
-          [slot]: price,
-        },
-      },
-    }));
-  };
+    openTime: string,
+    closeTime: string
+  ) {
+    const pricing = courtPricing[courtId];
+    if (!pricing) return { monFri: [], satSun: [] };
+    // Helper to group consecutive ranges with same price
+    function groupRanges(ranges: any[]) {
+      // Sort by start time
+      const sorted = [...ranges].sort((a, b) => {
+        const aStart = a.startTime || a.timeSlot?.split("-")[0];
+        const bStart = b.startTime || b.timeSlot?.split("-")[0];
+        return aStart.localeCompare(bStart);
+      });
+      const result = [];
+      let current = null;
+      for (const range of sorted) {
+        const start = range.startTime || range.timeSlot?.split("-")[0];
+        const end = range.endTime || range.timeSlot?.split("-")[1];
+        const price = range.price;
+        if (!current) {
+          current = { start, end, price };
+        } else if (current.price === price && current.end === start) {
+          // Extend current range
+          current.end = end;
+        } else {
+          result.push({ ...current });
+          current = { start, end, price };
+        }
+      }
+      if (current) result.push(current);
+      // Filter by open/close
+      return result.filter((r) => r.start >= openTime && r.end <= closeTime);
+    }
+    const monFri = groupRanges(pricing.weekdayRanges);
+    const satSun = groupRanges(pricing.weekendRanges);
+    return { monFri, satSun };
+  }
 
   // Days of week
   const daysOfWeek = [
@@ -1871,35 +1892,35 @@ export function AdminScheduleManagement() {
                           ))}
                         </div>
 
-                        {/* Price Ranges Summary */}
-                        <div className="flex items-center justify-between mb-4">
+                        {/* Price Ranges Summary (between name and base rate) */}
+                        <div className="flex w-full justify-between items-center mt-2 mb-2">
                           <div className="text-2xl font-bold">
                             <span>Mon–fri</span>
-                            {getFormattedPriceRanges(
+                            {getPriceRangeSummary(
                               court.id,
                               court.openTime,
                               court.closeTime
-                            ).monFri.map((txt, i) => (
+                            ).monFri.map((r, i) => (
                               <span
                                 key={i}
                                 className="ml-4 text-lg font-normal"
                               >
-                                {txt}
+                                {r.start}-{r.end} {r.price}eur
                               </span>
                             ))}
                           </div>
                           <div className="text-2xl font-bold">
                             <span>Sat–sun:</span>
-                            {getFormattedPriceRanges(
+                            {getPriceRangeSummary(
                               court.id,
                               court.openTime,
                               court.closeTime
-                            ).satSun.map((txt, i) => (
+                            ).satSun.map((r, i) => (
                               <span
                                 key={i}
                                 className="ml-4 text-lg font-normal"
                               >
-                                {txt}
+                                {r.start}-{r.end} {r.price}eur
                               </span>
                             ))}
                           </div>
