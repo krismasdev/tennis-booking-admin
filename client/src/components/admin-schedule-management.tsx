@@ -1908,7 +1908,8 @@ export function AdminScheduleManagement() {
                             <MapPin className="h-4 w-4 text-blue-600" />
                             {court.name}
                           </h3>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-gray-600 flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
                             Open {court.openTime} - {court.closeTime}
                           </p>
                         </div>
