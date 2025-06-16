@@ -844,6 +844,38 @@ export function AdminScheduleManagement() {
     return slots;
   })();
 
+  const handleSaveCourtPrices = async (courtId: number) => {
+    const updates = [];
+    for (const day of daysOfWeek) {
+      for (const slot of allTimeSlots) {
+        const price = editingPrices[courtId]?.[day]?.[slot];
+        if (price !== undefined) {
+          updates.push({
+            courtId,
+            dayOfWeek: daysOfWeek.indexOf(day),
+            timeSlot: slot,
+            price,
+          });
+        }
+      }
+    }
+    if (updates.length > 0) {
+      await apiRequest("POST", "/api/pricing-rules/batch", { updates });
+      // Optionally, refetch pricing for this court and clear editing state
+      setCourtPricing((prev) => {
+        const newPricing = { ...prev };
+        if (!newPricing[courtId]) newPricing[courtId] = {};
+        for (const update of updates) {
+          const day = daysOfWeek[update.dayOfWeek];
+          if (!newPricing[courtId][day]) newPricing[courtId][day] = {};
+          newPricing[courtId][day][update.timeSlot] = update.price;
+        }
+        return newPricing;
+      });
+      setEditingPrices((prev) => ({ ...prev, [courtId]: {} }));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <style>{numberInputStyles}</style>
@@ -1203,7 +1235,20 @@ export function AdminScheduleManagement() {
                         </tbody>
                       </table>
                     </div>
-                    {/* Optionally, add a Save button here to persist changes */}
+                    {Object.keys(editingPrices[court.id] || {}).some(
+                      (day) =>
+                        Object.keys(editingPrices[court.id][day] || {}).length >
+                        0
+                    ) && (
+                      <div className="mt-4 flex justify-end">
+                        <Button
+                          onClick={() => handleSaveCourtPrices(court.id)}
+                          variant="primary"
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
