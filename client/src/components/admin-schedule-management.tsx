@@ -845,6 +845,43 @@ export function AdminScheduleManagement() {
     return slots;
   })();
 
+  // Inline editing state for calendar grid
+  const [editingCell, setEditingCell] = useState<{
+    courtId: number;
+    day: string;
+    slot: string;
+  } | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
+
+  // Helper: start editing a cell
+  const startEditCell = (
+    courtId: number,
+    day: string,
+    slot: string,
+    value: string
+  ) => {
+    setEditingCell({ courtId, day, slot });
+    setEditingValue(value);
+  };
+  // Helper: save edit
+  const saveEditCell = () => {
+    if (editingCell) {
+      setCourtSlotPrice(
+        editingCell.courtId,
+        editingCell.day,
+        editingCell.slot,
+        editingValue
+      );
+      setEditingCell(null);
+      setEditingValue("");
+    }
+  };
+  // Helper: cancel edit
+  const cancelEditCell = () => {
+    setEditingCell(null);
+    setEditingValue("");
+  };
+
   const handleSaveCourtPrices = async (courtId: number) => {
     const updates = [];
     for (const day of daysOfWeek) {
@@ -1172,7 +1209,6 @@ export function AdminScheduleManagement() {
                     <div className="text-gray-600 text-sm">
                       Working Hours: {court.openTime} - {court.closeTime}
                     </div>
-                    {/* Price range summary (optional, can be improved) */}
                     <div className="text-xs text-gray-500 mt-1">
                       Price Range: €{court.hourlyRate}
                     </div>
@@ -1195,48 +1231,85 @@ export function AdminScheduleManagement() {
                                 key={day}
                                 className="border px-2 py-1 bg-gray-100"
                               >
-                                {day.slice(0, 3)}
+                                {day}
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {allTimeSlots.map((slotKey) => (
-                            <tr key={slotKey}>
-                              <td className="border px-2 py-1 font-mono text-xs">
-                                {slotKey}
-                              </td>
-                              {daysOfWeek.map((day) => (
-                                <td key={day} className="border px-2 py-1">
-                                  <span className="inline-flex items-center">
-                                    <span className="text-gray-500 text-xs mr-1">
-                                      €
-                                    </span>
-                                    <input
-                                      type="number"
-                                      value={getCourtSlotPrice(
-                                        court.id,
-                                        day,
-                                        slotKey
-                                      )}
-                                      onChange={(e) =>
-                                        setCourtSlotPrice(
-                                          court.id,
-                                          day,
-                                          slotKey,
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
-                                      style={{ MozAppearance: "textfield" }}
-                                      min="0"
-                                      step="0.01"
-                                    />
-                                  </span>
+                          {allTimeSlots.map((slotKey) => {
+                            const isEditing =
+                              editingCell &&
+                              editingCell.courtId === court.id &&
+                              editingCell.day ===
+                                daysOfWeek[slotKey.split(":")[0]] &&
+                              editingCell.slot === slotKey;
+                            const value = getCourtSlotPrice(
+                              court.id,
+                              daysOfWeek[slotKey.split(":")[0]],
+                              slotKey
+                            );
+                            return (
+                              <tr key={slotKey}>
+                                <td className="border px-2 py-1 font-mono text-xs">
+                                  {slotKey}
                                 </td>
-                              ))}
-                            </tr>
-                          ))}
+                                {daysOfWeek.map((day) => {
+                                  const isEditingCell =
+                                    editingCell &&
+                                    editingCell.courtId === court.id &&
+                                    editingCell.day === day &&
+                                    editingCell.slot === slotKey;
+                                  return (
+                                    <td key={day} className="border px-2 py-1">
+                                      {isEditingCell ? (
+                                        <input
+                                          type="number"
+                                          value={editingValue}
+                                          autoFocus
+                                          min="0"
+                                          step="0.01"
+                                          className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
+                                          onChange={(e) =>
+                                            setEditingValue(e.target.value)
+                                          }
+                                          onBlur={saveEditCell}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter")
+                                              saveEditCell();
+                                            if (e.key === "Escape")
+                                              cancelEditCell();
+                                          }}
+                                        />
+                                      ) : (
+                                        <span
+                                          className="inline-flex items-center cursor-pointer hover:bg-blue-50 rounded px-1"
+                                          onClick={() =>
+                                            startEditCell(
+                                              court.id,
+                                              day,
+                                              slotKey,
+                                              value
+                                            )
+                                          }
+                                          tabIndex={0}
+                                          role="button"
+                                          title="Click to edit price"
+                                        >
+                                          <span className="text-gray-500 text-xs mr-1">
+                                            €
+                                          </span>
+                                          <span className="text-xs font-medium">
+                                            {value}
+                                          </span>
+                                        </span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
