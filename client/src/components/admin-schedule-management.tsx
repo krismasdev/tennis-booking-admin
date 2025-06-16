@@ -888,61 +888,56 @@ export function AdminScheduleManagement() {
     return "0.00";
   }
 
-  // Helper to calculate average price for a time range
+  // Helper to calculate average price for a time range (returns 0 if no data)
   function getAveragePrice(pricingRanges: any[], start: string, end: string) {
-    // Accept both {startTime, endTime} and {timeSlot}
     const slots = pricingRanges.filter((range) => {
       const s = range.startTime || range.timeSlot?.split("-")[0];
       const e = range.endTime || range.timeSlot?.split("-")[1];
       return s >= start && e <= end;
     });
-    if (!slots.length) return null;
+    if (!slots.length) return "0.00";
     const avg =
       slots.reduce((sum, r) => sum + parseFloat(r.price), 0) / slots.length;
     return avg.toFixed(2);
   }
 
-  // Helper to get price range summary for Mon–Fri and Sat–Sun
+  // Helper to get price range summary for Mon–Fri and Sat–Sun (always show both ranges)
   function getSummaryRanges(
     courtId: number,
     openTime: string,
     closeTime: string
   ) {
-    const pricing = courtPricing[courtId];
-    if (!pricing) return { monFri: [], satSun: [] };
-    // Before noon: openTime-12:00, After noon: 12:00-closeTime
+    const pricing = courtPricing[courtId] || {
+      weekdayRanges: [],
+      weekendRanges: [],
+    };
     const noon = "12:00";
-    const monFri = [];
-    const satSun = [];
-    const avgBeforeNoon = getAveragePrice(
-      pricing.weekdayRanges,
-      openTime,
-      noon
-    );
-    if (avgBeforeNoon)
-      monFri.push({ start: openTime, end: noon, price: avgBeforeNoon });
-    const avgAfterNoon = getAveragePrice(
-      pricing.weekdayRanges,
-      noon,
-      closeTime
-    );
-    if (avgAfterNoon)
-      monFri.push({ start: noon, end: closeTime, price: avgAfterNoon });
-    const avgBeforeNoonWknd = getAveragePrice(
-      pricing.weekendRanges,
-      openTime,
-      noon
-    );
-    if (avgBeforeNoonWknd)
-      satSun.push({ start: openTime, end: noon, price: avgBeforeNoonWknd });
-    const avgAfterNoonWknd = getAveragePrice(
-      pricing.weekendRanges,
-      noon,
-      closeTime
-    );
-    if (avgAfterNoonWknd)
-      satSun.push({ start: noon, end: closeTime, price: avgAfterNoonWknd });
-    return { monFri, satSun };
+    return {
+      monFri: [
+        {
+          start: openTime,
+          end: noon,
+          price: getAveragePrice(pricing.weekdayRanges, openTime, noon),
+        },
+        {
+          start: noon,
+          end: closeTime,
+          price: getAveragePrice(pricing.weekdayRanges, noon, closeTime),
+        },
+      ],
+      satSun: [
+        {
+          start: openTime,
+          end: noon,
+          price: getAveragePrice(pricing.weekendRanges, openTime, noon),
+        },
+        {
+          start: noon,
+          end: closeTime,
+          price: getAveragePrice(pricing.weekendRanges, noon, closeTime),
+        },
+      ],
+    };
   }
 
   // Days of week
@@ -1856,37 +1851,37 @@ export function AdminScheduleManagement() {
                             {court.description}
                           </p>
                           {/* Price Ranges Summary (between name/desc and base rate) */}
-                          <div className="flex w-full justify-between items-center mt-2 mb-2">
-                            <div className="text-2xl font-bold">
-                              <span>Mon-Fri:</span>
-                              {getSummaryRanges(
-                                court.id,
-                                court.openTime,
-                                court.closeTime
-                              ).monFri.map((r, i) => (
-                                <span
-                                  key={i}
-                                  className="ml-4 text-lg font-normal"
-                                >
-                                  {r.start}-{r.end} {r.price}eur
+                          <div className="w-full bg-gray-50 rounded px-3 py-1 flex flex-wrap items-center gap-4 text-base font-medium text-gray-700 mt-2 mb-2 border border-gray-200">
+                            <span className="font-semibold text-gray-800">
+                              Mon-Fri:
+                            </span>
+                            {getSummaryRanges(
+                              court.id,
+                              court.openTime,
+                              court.closeTime
+                            ).monFri.map((r, i) => (
+                              <span key={i} className="ml-2">
+                                {r.start}-{r.end}{" "}
+                                <span className="text-blue-700">
+                                  {r.price}eur
                                 </span>
-                              ))}
-                            </div>
-                            <div className="text-2xl font-bold">
-                              <span>Sat-Sun:</span>
-                              {getSummaryRanges(
-                                court.id,
-                                court.openTime,
-                                court.closeTime
-                              ).satSun.map((r, i) => (
-                                <span
-                                  key={i}
-                                  className="ml-4 text-lg font-normal"
-                                >
-                                  {r.start}-{r.end} {r.price}eur
+                              </span>
+                            ))}
+                            <span className="font-semibold text-gray-800 ml-6">
+                              Sat-Sun:
+                            </span>
+                            {getSummaryRanges(
+                              court.id,
+                              court.openTime,
+                              court.closeTime
+                            ).satSun.map((r, i) => (
+                              <span key={i} className="ml-2">
+                                {r.start}-{r.end}{" "}
+                                <span className="text-blue-700">
+                                  {r.price}eur
                                 </span>
-                              ))}
-                            </div>
+                              </span>
+                            ))}
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
