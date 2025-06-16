@@ -520,17 +520,14 @@ export class DatabaseStorage implements IStorage {
         .where(eq(courtPricingRules.id, rule.id));
       return rule;
     } else {
-      const [newRule] = await db
-        .insert(courtPricingRules)
-        .values({
-          courtId,
-          dayOfWeek: 0, // Assuming default dayOfWeek
-          timeSlot,
-          price,
-          isActive: true,
-        })
-        .returning({ id: courtPricingRules.id });
-      return newRule;
+      await db.insert(courtPricingRules).values({
+        courtId,
+        dayOfWeek: 0, // Assuming default dayOfWeek
+        timeSlot,
+        price,
+        isActive: true,
+      });
+      return true;
     }
   }
 
