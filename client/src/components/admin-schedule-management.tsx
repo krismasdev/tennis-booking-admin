@@ -728,6 +728,79 @@ export function AdminScheduleManagement() {
 
   const generatedTimeSlots = generateTimeSlots();
 
+  const [expandedCourtId, setExpandedCourtId] = useState<number | null>(null);
+  const [editingPrices, setEditingPrices] = useState<{
+    [courtId: number]: {
+      [day: string]: { [slot: string]: string };
+    };
+  }>({});
+
+  // Helper: get price for a court, day, slot
+  const getCourtSlotPrice = (courtId: number, day: string, slot: string) => {
+    return (
+      editingPrices[courtId]?.[day]?.[slot] ||
+      timeSlotPricing[day]?.[slot] ||
+      "0.00"
+    );
+  };
+
+  // Helper: set price for a court, day, slot
+  const setCourtSlotPrice = (
+    courtId: number,
+    day: string,
+    slot: string,
+    price: string
+  ) => {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [courtId]: {
+        ...prev[courtId],
+        [day]: {
+          ...((prev[courtId] && prev[courtId][day]) || {}),
+          [slot]: price,
+        },
+      },
+    }));
+  };
+
+  // Days of week
+  const daysOfWeek = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+
+  // Time slots (06:00-23:30, 30min intervals)
+  const allTimeSlots = (() => {
+    const slots = [];
+    let currentHour = 6,
+      currentMinute = 0;
+    while (currentHour < 24) {
+      let nextHour = currentHour;
+      let nextMinute = currentMinute + 30;
+      if (nextMinute >= 60) {
+        nextHour += 1;
+        nextMinute = 0;
+      }
+      if (nextHour > 23 || (nextHour === 23 && nextMinute > 30)) break;
+      const start = `${currentHour.toString().padStart(2, "0")}:${currentMinute
+        .toString()
+        .padStart(2, "0")}`;
+      const end = `${nextHour.toString().padStart(2, "0")}:${nextMinute
+        .toString()
+        .padStart(2, "0")}`;
+      const slotKey = `${start}-${end}`;
+      slots.push(slotKey);
+      currentHour = nextHour;
+      currentMinute = nextMinute;
+    }
+    return slots;
+  })();
+
   return (
     <div className="space-y-6">
       <style>{numberInputStyles}</style>
@@ -1003,380 +1076,100 @@ export function AdminScheduleManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Centered Court Selection */}
-          <div className="flex justify-center mb-8">
-            <div className="w-full max-w-md">
-              <Label htmlFor="court-select">Select Court</Label>
-              <Select
-                value={selectedCourt?.id?.toString() || ""}
-                onValueChange={async (value: string) => {
-                  const court = courts.find((c) => c.id.toString() === value);
-                  if (court) {
-                    setSelectedCourt(court);
-                    // Parse working hours
-                    const workingHours = court.description.match(
-                      /Open (\d{2}:\d{2}) - (\d{2}:\d{2})/
-                    );
-                    if (workingHours) {
-                      setOpenTime(workingHours[1]);
-                      setCloseTime(workingHours[2]);
-                    } else {
-                      setOpenTime(court.openTime);
-                      setCloseTime(court.closeTime);
-                    }
-                    setCourtName(court.name);
-                    try {
-                      // Fetch pricing rules for this court
-                      const response = await fetch(
-                        `/api/pricing-rules?courtId=${court.id}`,
-                        {
-                          credentials: "include",
-                        }
-                      );
-                      if (!response.ok)
-                        throw new Error("Failed to fetch pricing rules");
-                      const pricingRules = await response.json();
-                      // Initialize pricing state
-                      const mondayPricing: Record<string, string> = {};
-                      const saturdayPricing: Record<string, string> = {};
-                      const enabledDays = new Set<number>();
-                      // Process pricing rules
-                      pricingRules.forEach((rule: any) => {
-                        const timeSlot = rule.timeSlot;
-                        const price = rule.price;
-                        const dayOfWeek = rule.dayOfWeek;
-                        if (dayOfWeek === 1) {
-                          mondayPricing[timeSlot] = price;
-                          enabledDays.add(1);
-                        } else if (dayOfWeek === 6) {
-                          saturdayPricing[timeSlot] = price;
-                          enabledDays.add(6);
-                        }
-                      });
-                      // Determine if Monday prices are used for Tue-Fri
-                      const useMondayForWeekdays = pricingRules.some(
-                        (rule: any) =>
-                          rule.dayOfWeek >= 2 && rule.dayOfWeek <= 5
-                      );
-                      // Determine if Saturday prices are used for Sunday
-                      const useSaturdayForSunday = pricingRules.some(
-                        (rule: any) => rule.dayOfWeek === 0
-                      );
-                      setTimeSlotPricing({
-                        Monday: mondayPricing,
-                        Saturday: saturdayPricing,
-                      });
-                      setUseMondayPrices(useMondayForWeekdays);
-                      setUseSaturdayPrices(useSaturdayForSunday);
-                      // Set day pricing with actual prices from pricing rules
-                      const dayPricingData = [
-                        {
-                          day: "Monday",
-                          price:
-                            Object.values(mondayPricing)[0] || court.hourlyRate,
-                          enabled: enabledDays.has(1),
-                        },
-                        {
-                          day: "Tuesday",
-                          price: useMondayForWeekdays
-                            ? Object.values(mondayPricing)[0] ||
-                              court.hourlyRate
-                            : court.hourlyRate,
-                          enabled: enabledDays.has(2),
-                        },
-                        {
-                          day: "Wednesday",
-                          price: useMondayForWeekdays
-                            ? Object.values(mondayPricing)[0] ||
-                              court.hourlyRate
-                            : court.hourlyRate,
-                          enabled: enabledDays.has(3),
-                        },
-                        {
-                          day: "Thursday",
-                          price: useMondayForWeekdays
-                            ? Object.values(mondayPricing)[0] ||
-                              court.hourlyRate
-                            : court.hourlyRate,
-                          enabled: enabledDays.has(4),
-                        },
-                        {
-                          day: "Friday",
-                          price: useMondayForWeekdays
-                            ? Object.values(mondayPricing)[0] ||
-                              court.hourlyRate
-                            : court.hourlyRate,
-                          enabled: enabledDays.has(5),
-                        },
-                        {
-                          day: "Saturday",
-                          price:
-                            Object.values(saturdayPricing)[0] ||
-                            court.hourlyRate,
-                          enabled: enabledDays.has(6),
-                        },
-                        {
-                          day: "Sunday",
-                          price: useSaturdayForSunday
-                            ? Object.values(saturdayPricing)[0] ||
-                              court.hourlyRate
-                            : court.hourlyRate,
-                          enabled: enabledDays.has(0),
-                        },
-                      ];
-                      setDayPricing(dayPricingData);
-                    } catch (error: any) {
-                      // Optionally show a toast or error
-                    }
-                  }
-                }}
+          {/* Render all courts as expandable panels */}
+          <div className="space-y-6">
+            {courts.map((court) => (
+              <div
+                key={court.id}
+                className="border rounded-lg bg-white shadow-sm"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a court" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courts.map((court) => (
-                    <SelectItem key={court.id} value={court.id.toString()}>
-                      {court.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Centered Court Details */}
-          {selectedCourt && (
-            <div className="flex flex-col items-center">
-              <div className="space-y-6 w-full max-w-3xl">
-                <div className="flex justify-between items-start w-full">
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+                  onClick={() =>
+                    setExpandedCourtId(
+                      expandedCourtId === court.id ? null : court.id
+                    )
+                  }
+                >
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 text-center md:text-left">
-                      {selectedCourt.name}
-                    </h3>
-                    <p className="text-gray-600 mt-1 text-center md:text-left">
-                      Working Hours: {selectedCourt.openTime} -{" "}
-                      {selectedCourt.closeTime}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => setIsViewCourtDialogOpen(true)}
-                    variant="outline"
-                  >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Edit Court
-                  </Button>
-                </div>
-
-                {/* Centered Time Slots and Pricing Table */}
-                <div className="flex justify-center">
-                  <div className="overflow-x-auto">
-                    <div className="grid grid-cols-4 gap-8">
-                      {/* Define time slot groups */}
-                      {[
-                        {
-                          label: "Morning",
-                          times: [
-                            "06:00",
-                            "06:30",
-                            "07:00",
-                            "07:30",
-                            "08:00",
-                            "08:30",
-                            "09:00",
-                            "09:30",
-                            "10:00",
-                            "10:30",
-                            "11:00",
-                            "11:30",
-                          ],
-                        },
-                        {
-                          label: "Afternoon",
-                          times: [
-                            "12:00",
-                            "12:30",
-                            "13:00",
-                            "13:30",
-                            "14:00",
-                            "14:30",
-                            "15:00",
-                            "15:30",
-                            "16:00",
-                            "16:30",
-                          ],
-                        },
-                        {
-                          label: "Peak Hours",
-                          times: [
-                            "17:00",
-                            "17:30",
-                            "18:00",
-                            "18:30",
-                            "19:00",
-                            "19:30",
-                            "20:00",
-                            "20:30",
-                            "21:00",
-                            "21:30",
-                            "22:00",
-                            "22:30",
-                            "23:00",
-                            "23:30",
-                          ],
-                        },
-                      ].map((group) => (
-                        <div key={group.label}>
-                          <div className="font-semibold mb-2">
-                            {group.label}
-                          </div>
-                          {group.times.map((start) => {
-                            // Find the corresponding time slot (e.g. '06:00-06:30')
-                            const startHour = parseInt(start.split(":")[0], 10);
-                            const startMinute = parseInt(
-                              start.split(":")[1],
-                              10
-                            );
-                            let endHour = startHour;
-                            let endMinute = startMinute + 30;
-                            if (endMinute >= 60) {
-                              endHour += 1;
-                              endMinute = 0;
-                            }
-                            const displayEndHour = endHour === 24 ? 0 : endHour;
-                            const end = `${displayEndHour
-                              .toString()
-                              .padStart(2, "0")}:${endMinute
-                              .toString()
-                              .padStart(2, "0")}`;
-                            const slotKey = `${start}-${end}`;
-                            // Use Monday as default for display, or fallback to any enabled day
-                            const day = dayPricing[0]?.enabled
-                              ? "Monday"
-                              : dayPricing.find((d) => d.enabled)?.day ||
-                                "Monday";
-                            const price =
-                              timeSlotPricing[day]?.[slotKey] || "0.00";
-                            return (
-                              <div
-                                key={slotKey}
-                                className="flex items-center mb-2"
-                              >
-                                <span className="w-24 text-sm">{slotKey}</span>
-                                <div className="relative w-24">
-                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">
-                                    €
-                                  </span>
-                                  <input
-                                    type="number"
-                                    value={price}
-                                    readOnly
-                                    className="pl-5 pr-2 py-1 w-full border rounded text-xs bg-gray-50 appearance-none focus:outline-none"
-                                    style={{ MozAppearance: "textfield" }}
-                                    min="0"
-                                    step="0.01"
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
+                    <div className="font-bold text-lg">{court.name}</div>
+                    <div className="text-gray-600 text-sm">
+                      Working Hours: {court.openTime} - {court.closeTime}
+                    </div>
+                    {/* Price range summary (optional, can be improved) */}
+                    <div className="text-xs text-gray-500 mt-1">
+                      Price Range: €{court.hourlyRate}
                     </div>
                   </div>
+                  <button className="text-blue-600 font-semibold text-sm">
+                    {expandedCourtId === court.id ? "Collapse" : "Expand"}
+                  </button>
                 </div>
-                <div className="flex justify-center mt-12">
-                  <div className="overflow-x-auto w-full">
-                    <table className="min-w-full border text-center">
-                      <thead>
-                        <tr>
-                          <th className="border px-2 py-1 bg-gray-100">
-                            Time Slot
-                          </th>
-                          {[
-                            "Monday",
-                            "Tuesday",
-                            "Wednesday",
-                            "Thursday",
-                            "Friday",
-                            "Saturday",
-                            "Sunday",
-                          ].map((day) => (
-                            <th
-                              key={day}
-                              className="border px-2 py-1 bg-gray-100"
-                            >
-                              {day.slice(0, 3)}
+                {expandedCourtId === court.id && (
+                  <div className="p-4 border-t bg-gray-50">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border text-center">
+                        <thead>
+                          <tr>
+                            <th className="border px-2 py-1 bg-gray-100">
+                              Time Slot
                             </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Build all possible time slots from 06:00 to 23:30 */}
-                        {(() => {
-                          const slots = [];
-                          let currentHour = 6,
-                            currentMinute = 0;
-                          while (currentHour < 24) {
-                            let nextHour = currentHour;
-                            let nextMinute = currentMinute + 30;
-                            if (nextMinute >= 60) {
-                              nextHour += 1;
-                              nextMinute = 0;
-                            }
-                            if (
-                              nextHour > 23 ||
-                              (nextHour === 23 && nextMinute > 30)
-                            )
-                              break;
-                            const start = `${currentHour
-                              .toString()
-                              .padStart(2, "0")}:${currentMinute
-                              .toString()
-                              .padStart(2, "0")}`;
-                            const end = `${nextHour
-                              .toString()
-                              .padStart(2, "0")}:${nextMinute
-                              .toString()
-                              .padStart(2, "0")}`;
-                            const slotKey = `${start}-${end}`;
-                            slots.push(slotKey);
-                            currentHour = nextHour;
-                            currentMinute = nextMinute;
-                          }
-                          return slots;
-                        })().map((slotKey) => (
-                          <tr key={slotKey}>
-                            <td className="border px-2 py-1 font-mono text-xs">
-                              {slotKey}
-                            </td>
-                            {[
-                              "Monday",
-                              "Tuesday",
-                              "Wednesday",
-                              "Thursday",
-                              "Friday",
-                              "Saturday",
-                              "Sunday",
-                            ].map((day) => (
-                              <td key={day} className="border px-2 py-1">
-                                <span className="inline-flex items-center">
-                                  <span className="text-gray-500 text-xs mr-1">
-                                    €
-                                  </span>
-                                  {timeSlotPricing[day]?.[slotKey] || "0.00"}
-                                </span>
-                              </td>
+                            {daysOfWeek.map((day) => (
+                              <th
+                                key={day}
+                                className="border px-2 py-1 bg-gray-100"
+                              >
+                                {day.slice(0, 3)}
+                              </th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {allTimeSlots.map((slotKey) => (
+                            <tr key={slotKey}>
+                              <td className="border px-2 py-1 font-mono text-xs">
+                                {slotKey}
+                              </td>
+                              {daysOfWeek.map((day) => (
+                                <td key={day} className="border px-2 py-1">
+                                  <span className="inline-flex items-center">
+                                    <span className="text-gray-500 text-xs mr-1">
+                                      €
+                                    </span>
+                                    <input
+                                      type="number"
+                                      value={getCourtSlotPrice(
+                                        court.id,
+                                        day,
+                                        slotKey
+                                      )}
+                                      onChange={(e) =>
+                                        setCourtSlotPrice(
+                                          court.id,
+                                          day,
+                                          slotKey,
+                                          e.target.value
+                                        )
+                                      }
+                                      className="w-16 text-xs border rounded px-2 py-1 bg-white appearance-none focus:outline-none"
+                                      style={{ MozAppearance: "textfield" }}
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                  </span>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Optionally, add a Save button here to persist changes */}
                   </div>
-                </div>
+                )}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </CardContent>
       </Card>
 
