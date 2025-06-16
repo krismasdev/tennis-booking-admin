@@ -1281,6 +1281,13 @@ export function AdminScheduleManagement() {
     }));
   };
 
+  // Helper to check if a cell is edited
+  function isCellEdited(courtId: number, day: string, slot: string) {
+    const original = getCourtSlotPrice(courtId, day, slot);
+    const edited = editingPrices[courtId]?.[day]?.[slot];
+    return edited !== undefined && edited !== original;
+  }
+
   // Replace the existing price grid UI with the new range-based UI
   const renderPriceRanges = (court: Court) => {
     const isEditing = editingPrices[court.id];
@@ -1489,12 +1496,16 @@ export function AdminScheduleManagement() {
 
   // Update the calendar grid cell rendering
   const renderCalendarCell = (court: Court, day: string, time: string) => {
-    const price = getCourtSlotPrice(court.id, day, time);
+    const price =
+      editingPrices[court.id]?.[day]?.[time] !== undefined
+        ? editingPrices[court.id][day][time]
+        : getCourtSlotPrice(court.id, day, time);
     const isEditing =
       editingCell &&
       editingCell.courtId === court.id &&
       editingCell.day === day &&
       editingCell.slot === time;
+    const isChanged = isCellEdited(court.id, day, time);
 
     return (
       <div
@@ -1502,6 +1513,8 @@ export function AdminScheduleManagement() {
         className={`min-h-[40px] rounded border text-xs p-2 flex flex-col items-center justify-center transition-all duration-200 ${
           isEditing
             ? "bg-orange-50 border-orange-200"
+            : isChanged
+            ? "bg-yellow-100 border-yellow-300 text-yellow-900"
             : "bg-green-50 border-green-200 text-green-800 hover:bg-green-100 cursor-pointer"
         }`}
         onClick={() => {
@@ -2011,48 +2024,36 @@ export function AdminScheduleManagement() {
                             Object.keys(editingPrices[court.id][day] || {})
                               .length > 0
                         ) && (
-                          <Dialog
-                            open={confirmSaveCourtId === court.id}
-                            onOpenChange={(open) =>
-                              setConfirmSaveCourtId(open ? court.id : null)
-                            }
-                          >
-                            <DialogTrigger asChild>
-                              <Button
-                                onClick={() => setConfirmSaveCourtId(court.id)}
-                                variant="primary"
-                                className="mt-4"
-                              >
-                                Save Price Changes
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Confirm Save</DialogTitle>
-                              </DialogHeader>
-                              <div className="py-4">
-                                Are you sure you want to save these price
-                                changes for <b>{court.name}</b>?
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="outline"
-                                  onClick={() => setConfirmSaveCourtId(null)}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  variant="primary"
-                                  onClick={async () => {
-                                    await handleSaveCourtPrices(court.id);
-                                    setConfirmSaveCourtId(null);
-                                  }}
-                                >
-                                  Confirm
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                          <div className="flex gap-4 mt-4">
+                            <Button
+                              variant="primary"
+                              onClick={async () => {
+                                await handleSaveCourtPrices(court.id);
+                                toast({
+                                  title: "Prices updated",
+                                  description: `Prices for ${court.name} saved.`,
+                                });
+                              }}
+                            >
+                              Save Changes
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setEditingPrices((prev) => {
+                                  const newState = { ...prev };
+                                  delete newState[court.id];
+                                  return newState;
+                                });
+                                toast({
+                                  title: "Changes discarded",
+                                  description: `All unsaved changes for ${court.name} have been reverted.`,
+                                });
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         )}
                       </>
                     )}
