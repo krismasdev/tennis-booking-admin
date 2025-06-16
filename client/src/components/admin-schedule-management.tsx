@@ -1048,6 +1048,10 @@ export function AdminScheduleManagement() {
     });
   };
 
+  const [confirmSaveCourtId, setConfirmSaveCourtId] = useState<number | null>(
+    null
+  );
+
   return (
     <div className="space-y-6">
       <style>{numberInputStyles}</style>
@@ -1441,6 +1445,55 @@ export function AdminScheduleManagement() {
                         </div>
                       ))}
                     </div>
+
+                    {/* In the calendar grid, replace the Save button with a Dialog for confirmation */}
+                    {Object.keys(editingPrices[court.id] || {}).some(
+                      (day) =>
+                        Object.keys(editingPrices[court.id][day] || {}).length >
+                        0
+                    ) && (
+                      <Dialog
+                        open={confirmSaveCourtId === court.id}
+                        onOpenChange={(open) =>
+                          setConfirmSaveCourtId(open ? court.id : null)
+                        }
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            onClick={() => setConfirmSaveCourtId(court.id)}
+                            variant="primary"
+                          >
+                            Save
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Confirm Save</DialogTitle>
+                          </DialogHeader>
+                          <div className="py-4">
+                            Are you sure you want to save these price changes
+                            for <b>{court.name}</b>?
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => setConfirmSaveCourtId(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="primary"
+                              onClick={async () => {
+                                await handleSaveCourtPrices(court.id);
+                                setConfirmSaveCourtId(null);
+                              }}
+                            >
+                              Confirm
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   </div>
                 ))}
 
