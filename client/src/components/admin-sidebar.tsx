@@ -225,14 +225,15 @@ export const AdminSidebar = ({
           {/* User Profile */}
           <div className="px-4 py-4 border-t border-gray-700">
             <div className="flex flex-col space-y-3 mb-4">
-              <div className="w-full bg-blue-600 rounded-lg p-3 flex items-center justify-center">
+              <div className="w-full bg-blue-600 rounded-lg p-3 flex flex-col items-center justify-center">
                 <span className="text-white font-semibold text-lg">
                   {user?.username?.toUpperCase()}
                 </span>
-              </div>
-              <div className="text-center">
-                <p className="text-white font-medium">{user?.username}</p>
-                <p className="text-gray-400 text-sm">Admin</p>
+                <span className="text-blue-100 text-xs mt-1">
+                  {user?.role
+                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                    : ""}
+                </span>
               </div>
             </div>
             <div className="space-y-2">
