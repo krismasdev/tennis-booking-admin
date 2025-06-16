@@ -1914,42 +1914,44 @@ export function AdminScheduleManagement() {
                         </div>
                         {/* Price Ranges Summary (between name/desc and base rate) */}
                         <div className="w-full rounded px-3 py-1 flex flex-col gap-2 text-base font-medium text-gray-700 mt-2 mb-2">
-                          <div className="flex items-center gap-4">
-                            <span className="font-bold text-gray-800 min-w-[60px]">
-                              Mon-Fri:
-                            </span>
-                            <div className="flex flex-col">
-                              {getSummaryRanges(
-                                court.id,
-                                court.openTime,
-                                court.closeTime
-                              ).monFri.map((r, i) => (
-                                <span key={i} className="text-gray-700">
-                                  {r.start}-{r.end}{" "}
-                                  <span className="text-blue-700">
-                                    {r.price}eur
+                          <div className="flex items-center gap-8">
+                            <div className="flex items-center gap-4">
+                              <span className="font-bold text-gray-800 min-w-[60px]">
+                                Mon-Fri:
+                              </span>
+                              <div className="flex flex-col">
+                                {getSummaryRanges(
+                                  court.id,
+                                  court.openTime,
+                                  court.closeTime
+                                ).monFri.map((r, i) => (
+                                  <span key={i} className="text-gray-700">
+                                    {r.start}-{r.end}{" "}
+                                    <span className="text-blue-700">
+                                      {r.price}eur
+                                    </span>
                                   </span>
-                                </span>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span className="font-bold text-gray-800 min-w-[60px]">
-                              Sat-Sun:
-                            </span>
-                            <div className="flex flex-col">
-                              {getSummaryRanges(
-                                court.id,
-                                court.openTime,
-                                court.closeTime
-                              ).satSun.map((r, i) => (
-                                <span key={i} className="text-gray-700">
-                                  {r.start}-{r.end}{" "}
-                                  <span className="text-blue-700">
-                                    {r.price}eur
+                            <div className="flex items-center gap-4">
+                              <span className="font-bold text-gray-800 min-w-[60px]">
+                                Sat-Sun:
+                              </span>
+                              <div className="flex flex-col">
+                                {getSummaryRanges(
+                                  court.id,
+                                  court.openTime,
+                                  court.closeTime
+                                ).satSun.map((r, i) => (
+                                  <span key={i} className="text-gray-700">
+                                    {r.start}-{r.end}{" "}
+                                    <span className="text-blue-700">
+                                      {r.price}eur
+                                    </span>
                                   </span>
-                                </span>
-                              ))}
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
